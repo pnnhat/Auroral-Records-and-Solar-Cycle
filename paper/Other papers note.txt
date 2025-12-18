@@ -1,0 +1,15 @@
+Richard 1st paper note:
+- Still controversy concerning the reality of systematic changes in solar output in the frequency range of 1 or 2 cycles per century. This has been called the Gleissberg variation, the "long cycle", the "87-year cycle", and the secular variation.
+- contained six data sets: sunspot numbers since 1720 as an expression of solar cycle, post maunder minimum auroral data set, pre maunder minimum auroral data set, 2 sets of carbon-14 data
+- Since dataets are proxy for at least 3 different aspects of solar activity and solar wind, a perioidictity in any one of these quantities does not necessarily imply a periodictity in the others
+- using maximum entropy method spectral analysis (MEM), and once the period is known from MEM, it can be used in a superposed epoch analysis to determine the amplitude and phase
+- one carried out a power spectral analysis of the post-700 ad rates of production of carbon-14 and did not find any increase in power in the 60- to 100-year frequency range. But someone did a convariance function analysis of 8000 years of 14-c data and found a broad increase in power in the region of 80 years, which they interpreted as evidence for the Gleissberg cycle. The conflict has been yet resolved
+- Although the spectrums are very stable, there are slight differences in the periods of the peak
+- All of the 15 other spectrumsshow peaks, theperiodsof which lie in the range 88.4 4- 0.7 years,and thatvalue is adopted as our best estimate
+- To determine amplitude and phase, given the period, these quantities can be found from a superposed epoch analysis of the data. The zero times of the epochs were chosen to make the average interval length of 88 years
+
+Richard feyman second paper:
+- There are also longer cycles, such as the 208 year de Vries cycle and 2200 year Hallstatt cycle (not discussed in this paper)
+- There are variations within 50 and 90-100 years in the amplitude of the solar cycle (Gleissberg Cycles).
+- There were 3 times when sunspot cycle had smaller maxima and depper and longer minima than usual: when exiting the Maunder Min, early in the 18th century, early in the 19th century, and the 20th centuries. This might speculate that another such event could take place at the beginning of the 21st century.  Indeed, the Sun during the transition between the solar cycles 23 and 24 exhibited an extended, deep minimum that has been widely commented upon. During that minimum in 2008 there were 250 days without sunspots. This was the second quietest year in over 100 year.  Only the twentieth century deep minimum was quieter with over 300 spotless days in 1913, and 250 days in 1912. The time and amplitude of the 24th sunspot cycle maximum itself cannot yet be determined because, as of this writing (23 July 2014), it is not yet established that the cycle maximum has passed.
+-  the sudden increase to over 12 years during the first two cycles of the nineteenth century, a time known as the Dalton minimum.

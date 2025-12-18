@@ -1,0 +1,88 @@
+## Ancient Auroral Records Compiled From Korean Historical Books during 1022-1811
+- Apart from the records in the north, most of the
+97 records of “vapours like fire light”, “red vapours” (pronunciation in Chinese: chì qì) and “odd red 98 vapours” (pronunciation in Chinese: chì jìn) appeared in the southern nocturnal sky.
+- Koryo-Sa 918-1391 (192 records), Choson Wangjo Sillok 1392-1910 (536 records), Seungjeongweon Ilgi 1623-190 (1359 records). 
+- Before merging, there are some criteri:
+ The record contains one of the keywords and should at least contain date information. Most of the records contain the full information of date, local time, and observed directions.
+ The phenomena should be observed at night, i.e. 19:00 LT to 05:00 LT, to eliminate the influence of twilight, solar halo, and other light sources such as clouds, planets, stars, comets, and meteors.
+ If fire disaster is mentioned in that day, the record is excluded.Since there is overlap in time for the three books, records from different books on the same day
+ are merged as one and the IDN’s for each book are kept in the dataset. 
+- After application of these criteria, the final dataset contain 2013 ancient Korean auroral records
+
+## Records of sunspot and aurora activity during 581-959 CE in Chinese official histories periods of Suí, Táng, and the Five Dynasties and Ten Kingdoms
+- Miyake et al. (2012; 2013) discovered anomalous increases of atmospheric 14C in tree
+rings during 774–775 CE and during 993–994 CE. They strongly indicate the sharp increase
+in cosmic ray fluxes during those periods. These two events were confirmed by 14C
+measurements of several different tree rings, corals of the South China Sea, and
+the Antarctic Dome Fuji ice core. Various suggestions for their origin have been put forward: an extreme solar proton event, a nearby supernova, a gamma ray burst, and a cometary impact on Earth. If one can identify clear evidence of the occurrence of extremely large sunspots or intense auroras in the historical records, it can provide a strong support for the “superflare” scenario of the 14C events.
+- However, it should be noted that the Chinese astronomical observations in pre-telescopic age were also made for the purpose of “astro-omenology” i.e., a kind of astrological fortunetelling and as “diagnostics” for policy makers, and hence may have suffered from political influences. Owing to their political importance, astronomical observations were made even during wars. For example, during the Ān Lùshān
+Rebellion (安史之亂) from 755–763 CE, which was the most momentous civil war in the
+reign of Tàng dynasty, considerable records of observations were made.
+- Generally, the color of auroras seen in such low latitude is red. The color of the aurora
+reflects the state of atoms and molecules in the upper atmosphere, and energy of precipitating electrons. For forbidden lines of atomic oxygen, green aurora at 557.7 nm,  which is the most common auroras, are seen in the mid-altitude range (100–150 km), and red one at 630.0 nm is seen at high altitudes (>200 km). Blue and violet auroras at 427.8 nm and 391.4 nm associated with emission of N2+ coincide with the green aurora. In very intense auroras, blue, violet, or pink colors at low altitudes (80–100 km) are sometimes seen which come from the molecular nitrogen lines (N2) in the blue and red parts of the emission spectrum. . These lines are mostly excited by energetic electrons injected from the magnetosphere (Chamberlain 1961). If seen from a latitude lower than that of the auroral oval, only the upper part of the aurora, where the red (630.0 nm) line dominates, is visible. It is also known that, during large geomagnetic storms, so-called stable auroral red arcs (SAR arcs) become visible in the mid latitude range. These linesare mostly excited by energetic electrons injected from the magnetosphere. If seen from a latitude lower than that of the auroral oval, only the upper part of the aurora, where the red (630.0 nm) line dominates, is visible. It is also known that, during large geomagnetic storms, so-called stable auroral red arcs (SAR arcs) become visible in the mid latitude range
+- In order for the green auroras to be seen in the Chinese capitals, however, the aurora oval would have had to extend to relatively low latitudes (30–35N). It is rare but possible that during extremely intense geomagnetic storms, such as the Carrington event of 1859 and are event of 1989 (Kimball 1960; Allen et al. 1989; Hayakawa et al. 2016b), the aurora oval may expand to such low latitudes. Considering that the geomagnetic latitude of China in the periods covered in this paper was probably higher than that of present China, it is not unreasonable to think that at least some of the white aurora candidates were indeed the green (white) auroras.
+- However, that the number of the white aurora candidates (21) is comparable to that of the
+red candidates (18) is still puzzling, as the green (white) auroras at such low latitude is much rarer than the usual red auroras at low latitude. It is hence likely that the other phenomena are also included in our list, particularly in the “white” auroral candidates. One possible nonauroral origin is the atmospheric optics events. Similar to our previous study (H15), here we present the result of the lunar age analysis. The atmospheric optics of the moon is a phenomenon in which ice crystals shaped as hexagonal prisms are suspended in the air and reflect or refract the moon light. This phenomenon is commonly known by its partial structures, such as sundogs, parhelic circles, and a 22-degree halo. Our hypothesis is that records would be distributed around the period of the full moon if a significant amount of atmospheric optics records contaminated the observational records.
+- The astronomical records in official histories in the pre-telescopic age include candidates of atmospheric optics, such as “lunar halo” or “paraselene” (or “moon dog”), as well as aurora candidates. The moon phase is a trait of the sky that we can calculate accurately for historic dates. To do this, we referred to the 6000-year catalog of moon phases with Julian dates found at the NASA Eclipse website . This catalog is based on an algorithm developed by Meeus (1998). There are record histograms concerning the normalized lunar age (0.0, 0.5 and 1.0 means the new moon, the full moon, and the next new moon). No significant tendency is found in these histograms. 
+
+# Solar cycles during the seventeenth century revealed by equatorial aurora records.
+- Between 1623 and 1645, the year with the fewest auroral events is estimated to be 1632. Yan LM et al. (2023) pinpointed the cycle lows between 1645 and 1678, as marked by equatorial aurorae, as occurring in 1645, 1653, 1662, 1670, and 1678. For the period 1678 to 1700, the years 1688 and 1699 are estimated as the cycle minima. Using the identified cycle minima, we established the sequence of solar cycles prior to 1755
+- With the established cycle minima, the maximum year for the
+cycles between 1623 and 1700 is determined as the year with
+maximum auroral records for each solar cycle. From cycle −12 to
+−6, the years with maximum auroral records are estimated to be
+1626, 1639, 1647, 1657, 1666, 1672, and 1684. For cycle −5 from
+1688 to 1699, the maximum year is estimated to be 1694, which
+corresponds to the second peak in aurora occurrence
+- The red equatorial aurora records we examined in this
+research are particularly valuable for tracing solar cycle fluctuations. Their advantages are manifold: 1) They were meticulously
+recorded under royal mandate, ensuring high accuracy and
+consistency; 2) The records offer a long, uninterrupted chronology, spanning from 1623 to 1811 with daily logs; 3) They boast
+exceptional temporal and location detail, with observations taken
+every two hours and a spatial precision within 45-degree
+segments. These factors suggest that equatorial auroral records
+are comparable to modern scientific data in their reliability,
+surpassing the utility of polar aurora records for this purpose. It is
+worth noting that the fewer auroral records between 1610 and
+1623 are due to incomplete documentation, and the evolution of
+the WPA (He F et al., 2021). During this period, the geomagnetic
+field intensity in the WPA is not low enough to produce many
+auroras.
+- Fortunately, the Maunder Minimum, a period of significant solar
+inactivity, coincided with a pronounced paleo-West Pacific
+Anomaly. This concurrence of events has provided a valuable
+basis for correlating and interpreting solar activity through equatorial aurora data collected during one of the most enigmatic periods in solar history. The data's accuracy and detail are significant
+enough to form an essential basis for understanding the intricacies
+of solar cycles since the advent of the telescope. By analyzing red
+equatorial auroras, we have established the minima and maxima
+years of solar cycles from 1623 to 1700, and reevaluated the
+sequence of solar cycles recorded before 1755. Our findings indicate that there were actually 13 solar cycles between 1610 and
+1755, as opposed to the previously accepted 12. During the initial
+half of the Maunder Minimum (1645−1678), the cycle duration
+contracted to approximately eight years, then gradually extended to the standard length of about 11 years from 1678 to 1715. These
+results provide a critical historical context for present-day observations and future forecasts.
+By investigating the relationship between rise time, its proportion
+relative to cycle length, and solar cycle intensity for cycles 0 to 24,
+we find that the rise time proportion value of 0.4 can effectively
+distinguishing between strong and weak solar cycles. The cycles
+of around 11 years (cycles −12, −11, −6, and −5), determined from
+the red equatorial aurorae, follow this rule. Notably, the rise time
+proportion of 0.4 is also applicable for the four cycles of eight
+years observed during the first half of the Maunder Minimum,
+revealed by the red equatorial aurora, making it possible to distinguish between the two stronger cycles (cycle −10 and −7) and the
+two weaker cycles (cycles −9 and −8).
+
+
+## The 8-Year Solar Cyle During Maunder Minimum
+- On the Earth, there are two types of auroral displays that are closely related to solar activity. The first is the polar aurora and the second is the red equatorial aurora. In Earth's high-latitude regions, energetic particles precipitating along the dipolar geomagnetic field lines collide and excite the atoms and molecules in the atmosphere to generate polar auroras
+- Traditionally, auroras are just observed in the high-latitude oval region surrounding the geomagnetic poles and are occasionally observed in low latitudes during extreme space weather events. However, past polar aurora records during the Maunder Minimum did not give a convincing, definitive conclusion about the solar cycle length due to the small sample size. Hence, to explore the periodicity of solar activity during the Maunder Minimum, we concentrated our studies on a particular class of red equatorial auroras compiled from historical books (He et al., 2020; Wang et al., 2021) and found a significant ∼8-year cycle, providing important clues for future investigation of solar dynamo during the GM.
+- Most, or perhaps all, of the auroral observations south of the Korean peninsula were equatorial auroras resulting from energetic particle precipitation into the atmosphere facilitated by the WPA (West Pacific Anomaly WPA- an ancient geomagnetic anomaly of weak intensity, allowing high-energy particles to penetrate deep into the atmosphere) during that
+- Among the 45 aurora candidates, 17 are white, 21 are red, and 8 are other colors, such as
+blue, blue-red, or red-white. It should be noted here that the latitude of the locations of the observations, which in most cases are at the contemporary capital, is considered to be not low enough for low latitude
+
+## Records of aurora duing 960-1279 CE of the Song dynasty (trieu dai nha Tong')
+- All the capitals in the Sòng era, where the observations were made, were located at latitudes between 30 N and 35 N. This period (CE 960–1279) overlaps with the CE 993–994 event as well as the so-called Medieval Warm Period
+- Chinese astronomical observations were also made for the purpose of “fortunetelling” for policy makers. For example, on – March CE 1204 at night, red clouds (chìyún) (hồng vân) appeared within white vapors (bạch khí), crossing the sky from the east to the west. After that, conflagrations occupied the country for eight days. Thus, astrologers regarded this as a symbol of fire. The reason for their consistent observations is based on Chinese culture and the politics of dynasties. Astronomical phenomena were traditionally thought to be signs from the heavens to the emperors reflecting their politics. Hhere is anecdotal evidence indicating the degree of sophistication and consistency of the astronomical observations in China during this period. During the invasion of the Sòng dynasty by the Jīn from the north, the Jīn captured Kāifēng in CE 1126. They broke all the observational instruments except for the spherical astrolabes, which were brought to Bĕijīng and adjusted by 4° in order to point to Polaris, as the instruments were moved from Kāifēng (35 N) to Bĕijīng (39 N)
+- Usual auroras show green color from the forbidden line of atomic oxygen at 557.7 nm in the middle altitude (100–150 km), and red color of a forbidden line of atomic oxygen at 630.0 nm in the high altitude (>200 km). In very intense auroras, blue, violet, or pink colors in the low altitude (80–100 km) are sometimes seen that come from the molecular nitrogen lines in the blue and red parts of the spectrum. These lines are mostly excited by energetic electrons injected from the magnetosphere
+- Results: 193 auroral candidates include 75 white, 58 red, 28 blue white, and 32 others (yellow, blue white, gold, etc)
+
