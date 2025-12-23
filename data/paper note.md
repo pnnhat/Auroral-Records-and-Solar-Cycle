@@ -27,51 +27,22 @@ red candidates (18) is still puzzling, as the green (white) auroras at such low 
 
 # Solar cycles during the seventeenth century revealed by equatorial aurora records.
 - Between 1623 and 1645, the year with the fewest auroral events is estimated to be 1632. Yan LM et al. (2023) pinpointed the cycle lows between 1645 and 1678, as marked by equatorial aurorae, as occurring in 1645, 1653, 1662, 1670, and 1678. For the period 1678 to 1700, the years 1688 and 1699 are estimated as the cycle minima. Using the identified cycle minima, we established the sequence of solar cycles prior to 1755
-- With the established cycle minima, the maximum year for the
-cycles between 1623 and 1700 is determined as the year with
-maximum auroral records for each solar cycle. From cycle −12 to
-−6, the years with maximum auroral records are estimated to be
-1626, 1639, 1647, 1657, 1666, 1672, and 1684. For cycle −5 from
-1688 to 1699, the maximum year is estimated to be 1694, which
-corresponds to the second peak in aurora occurrence
+- With the established cycle minima, the maximum year for the cycles between 1623 and 1700 is determined as the year with maximum auroral records for each solar cycle. From cycle −12 to
+−6, the years with maximum auroral records are estimated to be 1626, 1639, 1647, 1657, 1666, 1672, and 1684. For cycle −5 from 1688 to 1699, the maximum year is estimated to be 1694, which corresponds to the second peak in aurora occurrence
 - The red equatorial aurora records we examined in this
-research are particularly valuable for tracing solar cycle fluctuations. Their advantages are manifold: 1) They were meticulously
-recorded under royal mandate, ensuring high accuracy and
-consistency; 2) The records offer a long, uninterrupted chronology, spanning from 1623 to 1811 with daily logs; 3) They boast
-exceptional temporal and location detail, with observations taken
-every two hours and a spatial precision within 45-degree
-segments. These factors suggest that equatorial auroral records
-are comparable to modern scientific data in their reliability,
-surpassing the utility of polar aurora records for this purpose. It is
-worth noting that the fewer auroral records between 1610 and
-1623 are due to incomplete documentation, and the evolution of
-the WPA (He F et al., 2021). During this period, the geomagnetic
-field intensity in the WPA is not low enough to produce many
-auroras.
-- Fortunately, the Maunder Minimum, a period of significant solar
-inactivity, coincided with a pronounced paleo-West Pacific
-Anomaly. This concurrence of events has provided a valuable
-basis for correlating and interpreting solar activity through equatorial aurora data collected during one of the most enigmatic periods in solar history. The data's accuracy and detail are significant
-enough to form an essential basis for understanding the intricacies
-of solar cycles since the advent of the telescope. By analyzing red
-equatorial auroras, we have established the minima and maxima
-years of solar cycles from 1623 to 1700, and reevaluated the
-sequence of solar cycles recorded before 1755. Our findings indicate that there were actually 13 solar cycles between 1610 and
-1755, as opposed to the previously accepted 12. During the initial
-half of the Maunder Minimum (1645−1678), the cycle duration
-contracted to approximately eight years, then gradually extended to the standard length of about 11 years from 1678 to 1715. These
+research are particularly valuable for tracing solar cycle fluctuations. Their advantages are manifold: 1) They were meticulously recorded under royal mandate, ensuring high accuracy and
+consistency; 2) The records offer a long, uninterrupted chronology, spanning from 1623 to 1811 with daily logs; 3) They boast exceptional temporal and location detail, with observations taken
+every two hours and a spatial precision within 45-degree segments. These factors suggest that equatorial auroral records are comparable to modern scientific data in their reliability,
+surpassing the utility of polar aurora records for this purpose. It is worth noting that the fewer auroral records between 1610 and 1623 are due to incomplete documentation, and the evolution of
+the WPA (He F et al., 2021). During this period, the geomagnetic field intensity in the WPA is not low enough to produce many auroras.
+- Fortunately, the Maunder Minimum, a period of significant solar inactivity, coincided with a pronounced paleo-West Pacific Anomaly. This concurrence of events has provided a valuable
+basis for correlating and interpreting solar activity through equatorial aurora data collected during one of the most enigmatic periods in solar history. The data's accuracy and detail are significant enough to form an essential basis for understanding the intricacies
+of solar cycles since the advent of the telescope. By analyzing red equatorial auroras, we have established the minima and maxima years of solar cycles from 1623 to 1700, and reevaluated the
+sequence of solar cycles recorded before 1755. Our findings indicate that there were actually 13 solar cycles between 1610 and 1755, as opposed to the previously accepted 12. During the initial
+half of the Maunder Minimum (1645−1678), the cycle duration contracted to approximately eight years, then gradually extended to the standard length of about 11 years from 1678 to 1715. These
 results provide a critical historical context for present-day observations and future forecasts.
-By investigating the relationship between rise time, its proportion
-relative to cycle length, and solar cycle intensity for cycles 0 to 24,
-we find that the rise time proportion value of 0.4 can effectively
-distinguishing between strong and weak solar cycles. The cycles
-of around 11 years (cycles −12, −11, −6, and −5), determined from
-the red equatorial aurorae, follow this rule. Notably, the rise time
-proportion of 0.4 is also applicable for the four cycles of eight
-years observed during the first half of the Maunder Minimum,
-revealed by the red equatorial aurora, making it possible to distinguish between the two stronger cycles (cycle −10 and −7) and the
-two weaker cycles (cycles −9 and −8).
-
+By investigating the relationship between rise time, its proportion relative to cycle length, and solar cycle intensity for cycles 0 to 24, we find that the rise time proportion value of 0.4 can effectively distinguishing between strong and weak solar cycles. The cycles of around 11 years (cycles −12, −11, −6, and −5), determined from the red equatorial aurorae, follow this rule. Notably, the rise time proportion of 0.4 is also applicable for the four cycles of eight
+years observed during the first half of the Maunder Minimum, revealed by the red equatorial aurora, making it possible to distinguish between the two stronger cycles (cycle −10 and −7) and the two weaker cycles (cycles −9 and −8).
 
 ## The 8-Year Solar Cyle During Maunder Minimum
 - On the Earth, there are two types of auroral displays that are closely related to solar activity. The first is the polar aurora and the second is the red equatorial aurora. In Earth's high-latitude regions, energetic particles precipitating along the dipolar geomagnetic field lines collide and excite the atoms and molecules in the atmosphere to generate polar auroras
