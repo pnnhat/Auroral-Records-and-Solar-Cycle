@@ -9,9 +9,30 @@ chinese = pd.read_excel("data/ChineseDynastyRecords/Chinese Aurora Records.xlsx"
 
 test_korea = pd.read_excel("data/Korean_Aurora_Grades_918_1392.xlsx")
 
+# Stem plot
+year = test_korea["Year"].astype(int).values
+grade = test_korea["Magnitude"].astype(int).values  # 1–5
+
+# restrict to 1000–1400
+mask = (year >= 1000) & (year <= 1400)
+year = year[mask]
+grade = grade[mask]
+plt.figure(figsize=(12, 4))
+plt.vlines(year, ymin=0, ymax=grade, color="black", linewidth=1)
+plt.xlim(1000, 1400)
+plt.ylim(0, 5.5)
+
+plt.xlabel("Year")
+plt.ylabel("Magnitude")
+plt.yticks([1, 2, 3, 4, 5])
+plt.xticks(np.arange(1000, 1401, 50))
+plt.grid(False)
+plt.tight_layout()
+plt.show()
+
 # Periodogram Analysis for Korean Aurora Records (as yearly binned data)
 year = test_korea["Year"].astype(int).values
-grade = test_korea["Grade"].astype(float).values
+grade = test_korea["Magnitude"].astype(float).values
 
 year_min = year.min()
 year_max = year.max()
@@ -50,6 +71,7 @@ period = 1 / frequency  # convert to period
 
 plt.figure(figsize=(10, 6))
 plt.plot(period, power, color="black")
+plt.title("Lomb-Scargle Periodogram with yearly series")
 plt.xlabel("Period (years)")
 plt.ylabel("Power")
 plt.xlim(min_period, max_period)
@@ -62,7 +84,7 @@ plt.show()
 
 # zoom in
 year = test_korea["Year"].astype(int).values
-grade = test_korea["Grade"].astype(float).values
+grade = test_korea["Magnitude"].astype(float).values
 
 year_min = year.min()
 year_max = year.max()
@@ -99,6 +121,7 @@ period = 1.0 / frequency
 
 plt.figure(figsize=(10, 6))
 plt.plot(period, power, color="black")
+plt.title("Lomb-Scargle Periodogram with yearly series")
 plt.xlabel("Period (years)")
 plt.ylabel("Power")
 plt.xlim(min_period, max_period)
@@ -112,7 +135,7 @@ plt.show()
 
 ## as event-series
 t = test_korea["Year"].astype(int).values
-y = test_korea["Grade"].astype(float).values
+y = test_korea["Magnitude"].astype(float).values
 
 y = y - np.mean(y)
 
@@ -134,6 +157,87 @@ plt.grid(True, linestyle="--")
 plt.axvline(13.2, color="red", linestyle="--", label="~13-year")
 
 plt.xticks([6, 8, 10, 20])
+plt.legend(frameon=False)
+plt.tight_layout()
+plt.show()
+
+
+# Lomb–Scargle with Monte Carlo significance levels
+year = test_korea["Year"].astype(int).values
+grade = test_korea["Magnitude"].astype(float).values
+
+year_min = int(year.min())
+year_max = int(year.max())
+years = np.arange(year_min, year_max + 1)
+
+yearly_amp = pd.Series(grade, index=year).groupby(level=0).sum()
+amp = np.array(
+    [float(yearly_amp.loc[y]) if y in yearly_amp.index else 0.0 for y in years],
+    dtype=float,
+)
+
+w = 40
+baseline = (
+    pd.Series(amp).rolling(window=w, center=True, min_periods=1).mean().to_numpy()
+)
+amp_hp = amp - baseline
+amp_hp = amp_hp - amp_hp.mean()
+
+min_period = 6.0
+max_period = 110.0
+nf = 60000
+frequency = np.linspace(1.0 / max_period, 1.0 / min_period, nf)
+period = 1.0 / frequency
+
+ls_obs = LombScargle(years, amp_hp, normalization="psd")
+power_obs = np.maximum(ls_obs.power(frequency), 0.0)
+
+
+n_mc = 10000
+rng = np.random.default_rng(42)
+power_mc = np.zeros((n_mc, nf), dtype=float)
+
+for i in range(n_mc):
+    year_rand = rng.integers(year_min, year_max + 1, size=len(year))
+    yearly_amp_rand = pd.Series(grade, index=year_rand).groupby(level=0).sum()
+    amp_rand = np.array(
+        [
+            float(yearly_amp_rand.loc[y]) if y in yearly_amp_rand.index else 0.0
+            for y in years
+        ],
+        dtype=float,
+    )
+
+    baseline_rand = (
+        pd.Series(amp_rand)
+        .rolling(window=w, center=True, min_periods=1)
+        .mean()
+        .to_numpy()
+    )
+    amp_hp_rand = amp_rand - baseline_rand
+    amp_hp_rand = amp_hp_rand - amp_hp_rand.mean()
+
+    ls_rand = LombScargle(years, amp_hp_rand, normalization="psd")
+    power_mc[i] = np.maximum(ls_rand.power(frequency), 0.0)
+
+sig_014 = np.percentile(power_mc, 99.86, axis=0)
+sig_030 = np.percentile(power_mc, 99.70, axis=0)
+
+
+plt.figure(figsize=(10, 6))
+plt.plot(period, power_obs, color="black", label="Observed")
+plt.plot(
+    period, sig_014, color="black", linestyle=":", linewidth=1.2, label="Upper 0.14%"
+)
+plt.plot(
+    period, sig_030, color="black", linestyle="--", linewidth=1.2, label="Upper 0.30%"
+)
+plt.xlabel("Period (years)")
+plt.ylabel("Power")
+plt.xlim(min_period, max_period)
+plt.grid(True, linestyle="--", alpha=0.4)
+plt.axvline(11.4, color="red", linestyle="--", label="~11-year", alpha=0.8)
+plt.xticks([6, 8, 10, 20, 40, 60, 80, 100])
 plt.legend(frameon=False)
 plt.tight_layout()
 plt.show()
