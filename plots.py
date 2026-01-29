@@ -11,14 +11,14 @@ test_korea = pd.read_excel("data/Korean_Aurora_Grades_918_1392.xlsx")
 
 # Stem plot
 year = test_korea["Year"].astype(int).values
-grade = test_korea["Magnitude"].astype(int).values  # 1–5
+magni = test_korea["Magnitude"].astype(int).values
 
 # restrict to 1000–1400
 mask = (year >= 1000) & (year <= 1400)
 year = year[mask]
-grade = grade[mask]
+magni = magni[mask]
 plt.figure(figsize=(12, 4))
-plt.vlines(year, ymin=0, ymax=grade, color="black", linewidth=1)
+plt.vlines(year, ymin=0, ymax=magni, color="black", linewidth=1)
 plt.xlim(1000, 1400)
 plt.ylim(0, 5.5)
 
@@ -32,14 +32,14 @@ plt.show()
 
 # Periodogram Analysis for Korean Aurora Records (as yearly binned data)
 year = test_korea["Year"].astype(int).values
-grade = test_korea["Magnitude"].astype(float).values
+magni = test_korea["Magnitude"].astype(float).values
 
 year_min = year.min()
 year_max = year.max()
 years = np.arange(year_min, year_max + 1)  # yearly grid
 
 yearly_amp = (
-    pd.Series(grade, index=year).groupby(level=0).sum()
+    pd.Series(magni, index=year).groupby(level=0).sum()
 )  # groups all events that occurred in the same year and sums their grades
 
 amp = []  # fill missing years with 0, so the series is a binned annual time seris
@@ -84,13 +84,13 @@ plt.show()
 
 # zoom in
 year = test_korea["Year"].astype(int).values
-grade = test_korea["Magnitude"].astype(float).values
+magni = test_korea["Magnitude"].astype(float).values
 
 year_min = year.min()
 year_max = year.max()
 years = np.arange(year_min, year_max + 1)
 
-yearly_amp = pd.Series(grade, index=year).groupby(level=0).sum()
+yearly_amp = pd.Series(magni, index=year).groupby(level=0).sum()
 
 amp = []
 for y in years:
@@ -164,13 +164,13 @@ plt.show()
 
 # Lomb–Scargle with Monte Carlo significance levels
 year = test_korea["Year"].astype(int).values
-grade = test_korea["Magnitude"].astype(float).values
+magni = test_korea["Magnitude"].astype(float).values
 
 year_min = int(year.min())
 year_max = int(year.max())
 years = np.arange(year_min, year_max + 1)
 
-yearly_amp = pd.Series(grade, index=year).groupby(level=0).sum()
+yearly_amp = pd.Series(magni, index=year).groupby(level=0).sum()
 amp = np.array(
     [float(yearly_amp.loc[y]) if y in yearly_amp.index else 0.0 for y in years],
     dtype=float,
@@ -199,7 +199,7 @@ power_mc = np.zeros((n_mc, nf), dtype=float)
 
 for i in range(n_mc):
     year_rand = rng.integers(year_min, year_max + 1, size=len(year))
-    yearly_amp_rand = pd.Series(grade, index=year_rand).groupby(level=0).sum()
+    yearly_amp_rand = pd.Series(magni, index=year_rand).groupby(level=0).sum()
     amp_rand = np.array(
         [
             float(yearly_amp_rand.loc[y]) if y in yearly_amp_rand.index else 0.0
