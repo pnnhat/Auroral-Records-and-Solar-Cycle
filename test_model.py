@@ -33,14 +33,13 @@ theta_true = {
 
 print("theta_true:", theta_true)
 
+seed = 2200
+rng = np.random.default_rng(seed)
+
 
 def lambda_func(t, beta0, beta1, omega, phi):
     t = np.asarray(t, dtype=float)
     return np.exp(beta0 + beta1 * np.sin(omega * t + phi))
-
-
-seed = 2200
-rng = np.random.default_rng(seed)
 
 
 def cdf_inversion(beta0, beta1, omega, phi, T, n_grid=20000, rng=None, seed=None):
@@ -275,7 +274,7 @@ anim.save("animation.gif", writer=PillowWriter(fps=10))
 plt.show()
 
 #! What's the minimum number of events needed to get a good estimate of the period?
-# Prefix
+# Sequentially adding events, add 1 prefix each time
 P_min, P_max, nP = 7.0, 16.0, 900
 periods = np.linspace(P_min, P_max, nP)
 omegas = 2 * np.pi / periods
@@ -552,6 +551,199 @@ N95s = np.array([r["N95"] for r in results], dtype=int)
 
 print("\nRange across seeds:")
 print(f"Minimum events for 90% confidence:: min={N90s.min()}, max={N90s.max()}")
-print(f"Minimum evetns for 95% confidence: min={N95s.min()}, max={N95s.max()}") 
+print(f"Minimum evetns for 95% confidence: min={N95s.min()}, max={N95s.max()}")
 
-#! What does it look like if the function is changed
+
+#! What does it look like if the function is changed to a Fourier Series?
+# 2 harmonics
+def lambda_func_2harm(t, beta0, omega, a1, b1, a2, b2):
+    t = np.asarray(t, dtype=float)
+    return np.exp(
+        beta0
+        + a1 * np.sin(omega * t)
+        + b1 * np.cos(omega * t)
+        + a2 * np.sin(2 * omega * t)
+        + b2 * np.cos(2 * omega * t)
+    )
+
+
+def beta0_2harm(a1, b1, a2, b2, omega, T, N_target, n_grid=20000):
+    t = np.linspace(0.0, T, n_grid)
+    base = np.exp(
+        a1 * np.cos(omega * t)
+        + b1 * np.sin(omega * t)
+        + a2 * np.cos(2 * omega * t)
+        + b2 * np.sin(2 * omega * t)
+    )
+    return np.log(N_target / np.trapz(base, t))
+
+
+# 1 harmonic
+def lambda_func_1harm(t, beta0, omega, a1, b1):
+    t = np.asarray(t, dtype=float)
+    return np.exp(beta0 + a1 * np.sin(omega * t) + b1 * np.cos(omega * t))
+
+
+def beta0_1harm(a1, b1, omega, T, N_target, n_grid=20000):
+    t = np.linspace(0.0, T, n_grid)
+    base = np.exp(a1 * np.cos(omega * t) + b1 * np.sin(omega * t))
+    return np.log(N_target / np.trapz(base, t))
+
+
+# Get log likelihood functions
+def log_likelihood_1harm(
+    event_times, T, N_target, omega, a1_grid, b1_grid, ll_grid=4000
+):
+    if len(event_times) == 0:
+        return -np.inf, (np.nan, np.nan, np.nan)
+
+    # compute cos and sin at event times
+    c1 = np.cos(omega * event_times)
+    s1 = np.sin(omega * event_times)
+
+    # integration grid
+    t_grid = np.linspace(0.0, T, ll_grid)
+    c1g = np.cos(omega * t_grid)
+    s1g = np.sin(omega * t_grid)
+
+    bestL = -np.inf
+    best = None
+
+    for a1 in a1_grid:
+        for b1 in b1_grid:
+            b0 = beta0_1harm(a1, b1, omega, T, N_target, n_grid=ll_grid)
+
+            term = np.sum(b0 + a1 * c1 + b1 * s1)
+            lam_grid = np.exp(b0 + a1 * c1g + b1 * s1g)
+            integral = np.trapz(lam_grid, t_grid)
+            L = term - integral
+
+            if L > bestL:
+                bestL = L
+                best = (b0, a1, b1)
+
+    return bestL, best
+
+
+def log_likelihood_2harm(
+    event_times, T, N_target, omega, a1_grid, b1_grid, a2_grid, b2_grid, ll_grid=4000
+):
+    if len(event_times) == 0:
+        return -np.inf, (np.nan, np.nan, np.nan, np.nan, np.nan)
+
+    # compute cos and sin at event times
+    c1 = np.cos(omega * event_times)
+    s1 = np.sin(omega * event_times)
+    c2 = np.cos(2 * omega * event_times)
+    s2 = np.sin(2 * omega * event_times)
+
+    # integration grid
+    t_grid = np.linspace(0.0, T, ll_grid)
+    c1g = np.cos(omega * t_grid)
+    s1g = np.sin(omega * t_grid)
+    c2g = np.cos(2 * omega * t_grid)
+    s2g = np.sin(2 * omega * t_grid)
+
+    bestL = -np.inf
+    best = None
+
+    for a1 in a1_grid:
+        for b1 in b1_grid:
+            for a2 in a2_grid:
+                for b2 in b2_grid:
+                    b0 = beta0_2harm(a1, b1, a2, b2, omega, T, N_target, n_grid=ll_grid)
+
+                    term = np.sum(b0 + a1 * c1 + b1 * s1 + a2 * c2 + b2 * s2)
+                    lam_grid = np.exp(b0 + a1 * c1g + b1 * s1g + a2 * c2g + b2 * s2g)
+                    integral = np.trapz(lam_grid, t_grid)
+                    L = term - integral
+
+                    if L > bestL:
+                        bestL = L
+                        best = (b0, a1, b1, a2, b2)
+
+    return bestL, best
+
+
+a1_true, b1_true = 0.0, 0.6
+a2_true, b2_true = 0.0, 0.3
+
+omega_true = 2 * np.pi / P_true
+beta0_true_2 = beta0_2harm(a1_true, b1_true, a2_true, b2_true, omega_true, T, N_target)
+
+
+# At P_true (2 harmonics), fit 1 harmonic, then plot intensity shapes
+a1_grid = np.linspace(-1.2, 1.2, 121)
+b1_grid = np.linspace(-1.2, 1.2, 121)
+
+L1_at_trueP, (b0_1hat, a1_hat, b1_hat) = log_likelihood_1harm(
+    t_events, T, N_target, omega_true, a1_grid, b1_grid, ll_grid=4000
+)
+
+t_plot = np.linspace(0.0, T, 3000)
+lam_true = lambda_func_2harm(
+    t_plot, beta0_true_2, omega_true, a1_true, b1_true, a2_true, b2_true
+)
+lam_fit1 = lambda_func_1harm(t_plot, b0_1hat, omega_true, a1_hat, b1_hat)
+
+plt.figure(figsize=(10, 4))
+plt.plot(t_plot, lam_true, lw=2, label="True intensity (2 harmonics)", color="black")
+plt.plot(t_plot, lam_fit1, lw=2, ls="--", label="Best 1-harm fit", color="C1")
+plt.xlabel("t")
+plt.ylabel("λ(t)")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+print("Best 1-harm fit at P_true = 11.0:")
+print(
+    f"  beta0={b0_1hat:.4f}, a1={a1_hat:.4f}, b1={b1_hat:.4f}, logL={L1_at_trueP:.2f}"
+)
+
+# Log likelihood vs period
+P_min, P_max, nP = 7.0, 16.0, 300
+periods = np.linspace(P_min, P_max, nP)
+
+a1_grid = np.linspace(0.0, 1.0, 21)
+b1_grid = np.linspace(-np.pi, np.pi, 61)
+a2_grid = np.linspace(0.0, 0.6, 13)
+b2_grid = np.linspace(-np.pi, np.pi, 61)
+
+logL1 = np.empty(nP)
+logL2 = np.empty(nP)
+
+best1_params = []
+best2_params = []
+
+for i, P in enumerate(periods):
+    omega = 2 * np.pi / P
+
+    L1, p1 = log_likelihood_1harm(
+        t_events, T, N_target, omega, a1_grid, b1_grid, ll_grid=2500
+    )
+    logL1[i] = L1
+    best1_params.append(p1)
+
+    L2, p2 = log_likelihood_2harm(
+        t_events, T, N_target, omega, a1_grid, b1_grid, a2_grid, b2_grid, ll_grid=2500
+    )
+    logL2[i] = L2
+    best2_params.append(p2)
+
+P_hat_1 = periods[int(np.argmax(logL1))]
+P_hat_2 = periods[int(np.argmax(logL2))]
+
+plt.figure(figsize=(10, 4))
+plt.plot(periods, logL1, lw=2, label="K=1")
+plt.plot(periods, logL2, lw=2, ls="--", label="LK=2")
+plt.axvline(P_true, ls=":", label="P_true")
+plt.axvline(P_hat_1, ls="-.", label=f"P_hat (K=1) = {P_hat_1:.2f}")
+plt.axvline(P_hat_2, ls="-.", label=f"P_hat (K=2) = {P_hat_2:.2f}")
+plt.xlabel("Period P")
+plt.ylabel("Profile log-likelihood")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+print(f"P_hat (fit K=1): {P_hat_1:.3f}")
+print(f"P_hat (fit K=2): {P_hat_2:.3f}")
