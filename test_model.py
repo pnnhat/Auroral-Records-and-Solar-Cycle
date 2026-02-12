@@ -505,6 +505,7 @@ plt.axhline(0.95, ls=":", color="gray", label="95%")
 plt.axvline(N_90, ls="--", color="red", label=f"N90 = {N_90}")
 plt.axvline(N_95, ls="--", color="blue", label=f"N95 = {N_95}")
 plt.xlabel("Number of events")
+plt.ylabel("Probability of accurate P̂")
 plt.xlim(0, N_max)
 plt.ylim(0, 1.02)
 plt.legend()
@@ -590,7 +591,6 @@ def beta0_1harm(a1, b1, omega, T, N_target, n_grid=20000):
     return np.log(N_target / np.trapz(base, t))
 
 
-# Get log likelihood functions
 def log_likelihood_1harm(
     event_times, T, N_target, omega, a1_grid, b1_grid, ll_grid=4000
 ):
@@ -598,8 +598,8 @@ def log_likelihood_1harm(
         return -np.inf, (np.nan, np.nan, np.nan)
 
     # compute cos and sin at event times
-    c1 = np.cos(omega * event_times)
     s1 = np.sin(omega * event_times)
+    c1 = np.cos(omega * event_times)
 
     # integration grid
     t_grid = np.linspace(0.0, T, ll_grid)
@@ -631,18 +631,16 @@ def log_likelihood_2harm(
     if len(event_times) == 0:
         return -np.inf, (np.nan, np.nan, np.nan, np.nan, np.nan)
 
-    # compute cos and sin at event times
-    c1 = np.cos(omega * event_times)
     s1 = np.sin(omega * event_times)
-    c2 = np.cos(2 * omega * event_times)
+    c1 = np.cos(omega * event_times)
     s2 = np.sin(2 * omega * event_times)
+    c2 = np.cos(2 * omega * event_times)
 
-    # integration grid
     t_grid = np.linspace(0.0, T, ll_grid)
-    c1g = np.cos(omega * t_grid)
     s1g = np.sin(omega * t_grid)
-    c2g = np.cos(2 * omega * t_grid)
+    c1g = np.cos(omega * t_grid)
     s2g = np.sin(2 * omega * t_grid)
+    c2g = np.cos(2 * omega * t_grid)
 
     bestL = -np.inf
     best = None
@@ -665,14 +663,22 @@ def log_likelihood_2harm(
     return bestL, best
 
 
-a1_true, b1_true = 0.0, 0.6
-a2_true, b2_true = 0.0, 0.3
+# What if the true is 2 harmonics, fit 1 harmonic?
+# get amplitudes and phases by randomizing
+A1, A2 = 0.6, 0.3
+rng = np.random.default_rng(2200)
+
+phi1 = rng.uniform(-np.pi, np.pi)
+phi2 = rng.uniform(-np.pi, np.pi)
+
+a1_true = A1 * np.cos(phi1)
+b1_true = A1 * np.sin(phi1)
+a2_true = A2 * np.cos(phi2)
+b2_true = A2 * np.sin(phi2)
 
 omega_true = 2 * np.pi / P_true
 beta0_true_2 = beta0_2harm(a1_true, b1_true, a2_true, b2_true, omega_true, T, N_target)
 
-
-# At P_true (2 harmonics), fit 1 harmonic, then plot intensity shapes
 a1_grid = np.linspace(-1.2, 1.2, 121)
 b1_grid = np.linspace(-1.2, 1.2, 121)
 
@@ -699,51 +705,239 @@ print("Best 1-harm fit at P_true = 11.0:")
 print(
     f"  beta0={b0_1hat:.4f}, a1={a1_hat:.4f}, b1={b1_hat:.4f}, logL={L1_at_trueP:.2f}"
 )
+print("\nTrue 2-harm parameters:")
+print(
+    f""
+    f"  beta0={beta0_true_2:.4f}, a1={a1_true:.4f}, b1={b1_true:.4f}, "
+    f"a2={a2_true:.4f}, b2={b2_true:.4f}"
+)
 
-# Log likelihood vs period
-P_min, P_max, nP = 7.0, 16.0, 300
-periods = np.linspace(P_min, P_max, nP)
+# What if the true is 1 harmonic, fit 2 harmonics?
+A1 = 0.7
+rng = np.random.default_rng(2200)
+phi1 = rng.uniform(-np.pi, np.pi)
 
-a1_grid = np.linspace(0.0, 1.0, 21)
-b1_grid = np.linspace(-np.pi, np.pi, 61)
-a2_grid = np.linspace(0.0, 0.6, 13)
-b2_grid = np.linspace(-np.pi, np.pi, 61)
+# again
+a1_true = A1 * np.cos(phi1)
+b1_true = A1 * np.sin(phi1)
+omega_true = 2 * np.pi / P_true
 
-logL1 = np.empty(nP)
-logL2 = np.empty(nP)
+beta0_true_1 = beta0_1harm(a1_true, b1_true, omega_true, T, N_target)
+a1_grid = np.linspace(-1.2, 1.2, 121)
+b1_grid = np.linspace(-1.2, 1.2, 121)
+a2_grid = np.linspace(-0.8, 0.8, 81)
+b2_grid = np.linspace(-0.8, 0.8, 81)
 
-best1_params = []
-best2_params = []
+L2_at_trueP, (b0_2hat, a1_hat, b1_hat, a2_hat, b2_hat) = log_likelihood_2harm(
+    t_events, T, N_target, omega_true, a1_grid, b1_grid, a2_grid, b2_grid, ll_grid=4000
+)
 
-for i, P in enumerate(periods):
-    omega = 2 * np.pi / P
-
-    L1, p1 = log_likelihood_1harm(
-        t_events, T, N_target, omega, a1_grid, b1_grid, ll_grid=2500
-    )
-    logL1[i] = L1
-    best1_params.append(p1)
-
-    L2, p2 = log_likelihood_2harm(
-        t_events, T, N_target, omega, a1_grid, b1_grid, a2_grid, b2_grid, ll_grid=2500
-    )
-    logL2[i] = L2
-    best2_params.append(p2)
-
-P_hat_1 = periods[int(np.argmax(logL1))]
-P_hat_2 = periods[int(np.argmax(logL2))]
+t_plot = np.linspace(0.0, T, 3000)
+lam_true = lambda_func_1harm(t_plot, beta0_true_1, omega_true, a1_true, b1_true)
+lam_fit2 = lambda_func_2harm(
+    t_plot, b0_2hat, omega_true, a1_hat, b1_hat, a2_hat, b2_hat
+)
 
 plt.figure(figsize=(10, 4))
-plt.plot(periods, logL1, lw=2, label="K=1")
-plt.plot(periods, logL2, lw=2, ls="--", label="LK=2")
-plt.axvline(P_true, ls=":", label="P_true")
-plt.axvline(P_hat_1, ls="-.", label=f"P_hat (K=1) = {P_hat_1:.2f}")
-plt.axvline(P_hat_2, ls="-.", label=f"P_hat (K=2) = {P_hat_2:.2f}")
-plt.xlabel("Period P")
-plt.ylabel("Profile log-likelihood")
+plt.plot(t_plot, lam_true, lw=2, label="True intensity (1 harmonic)", color="black")
+plt.plot(t_plot, lam_fit2, lw=2, ls="--", label="Best 2-harm fit", color="C1")
+plt.xlabel("t")
+plt.ylabel("λ(t)")
 plt.legend()
 plt.tight_layout()
 plt.show()
 
-print(f"P_hat (fit K=1): {P_hat_1:.3f}")
-print(f"P_hat (fit K=2): {P_hat_2:.3f}")
+print("Best 2-harm fit at P_true = 11.0:")
+print(
+    f"  beta0={b0_2hat:.4f}, a1={a1_hat:.4f}, b1={b1_hat:.4f}, "
+    f"a2={a2_hat:.4f}, b2={b2_hat:.4f}, logL={L2_at_trueP:.2f}"
+)
+
+print("\nTrue 1-harm parameters:")
+print(f"  beta0={beta0_true_1:.4f}, a1={a1_true:.4f}, b1={b1_true:.4f}")
+
+
+def cdf_inversion_harm(beta0, omega, T, lam_on_grid, n_grid=20000, rng=None, seed=None):
+    if rng is None:
+        rng = np.random.default_rng(seed)
+
+    t_grid = np.linspace(0.0, T, n_grid)
+    lam_grid = lam_on_grid(t_grid, beta0, omega)
+
+    dt = np.diff(t_grid)
+    incr = 0.5 * (lam_grid[:-1] + lam_grid[1:]) * dt
+    Lambda_grid = np.concatenate([[0.0], np.cumsum(incr)])
+    Lambda_T = Lambda_grid[-1]
+
+    N = rng.poisson(Lambda_T)
+    u = rng.random(N) * Lambda_T
+
+    inv_Lambda = interp1d(
+        Lambda_grid,
+        t_grid,
+        kind="linear",
+        bounds_error=False,
+        fill_value=(0.0, T),
+        assume_sorted=True,
+    )
+    t_events = inv_Lambda(u)
+    t_events.sort()
+    return t_events, Lambda_T
+
+
+rng0 = np.random.default_rng(2200)
+
+# TRUE K=1
+A1 = 0.6
+phi1 = rng0.uniform(-np.pi, np.pi)
+a1_1, b1_1 = A1 * np.cos(phi1), A1 * np.sin(phi1)
+omega_true = 2 * np.pi / P_true
+beta0_true_1 = beta0_1harm(a1_1, b1_1, omega_true, T, N_target)
+
+
+def lam1(t, beta0, omega):
+    return lambda_func_1harm(t, beta0, omega, a1_1, b1_1)
+
+
+# TRUE K=2
+A2 = 0.3
+phi2 = rng0.uniform(-np.pi, np.pi)
+a1_2, b1_2 = a1_1, b1_1
+a2_2, b2_2 = A2 * np.cos(phi2), A2 * np.sin(phi2)
+beta0_true_2 = beta0_2harm(a1_2, b1_2, a2_2, b2_2, omega_true, T, N_target)
+
+
+def lam2(t, beta0, omega):
+    return lambda_func_2harm(t, beta0, omega, a1_2, b1_2, a2_2, b2_2)
+
+
+# K=1 integrals(P)
+lam_grid_1 = np.exp(
+    beta0_true_1
+    + a1_1 * np.sin(omegas[:, None] * t_grid_ll[None, :])
+    + b1_1 * np.cos(omegas[:, None] * t_grid_ll[None, :])
+)
+integrals_1 = np.trapz(lam_grid_1, t_grid_ll, axis=1)
+
+# K=2 integrals(P)
+sin1 = np.sin(omegas[:, None] * t_grid_ll[None, :])
+cos1 = np.cos(omegas[:, None] * t_grid_ll[None, :])
+sin2 = np.sin(2 * omegas[:, None] * t_grid_ll[None, :])
+cos2 = np.cos(2 * omegas[:, None] * t_grid_ll[None, :])
+lam_grid_2 = np.exp(
+    beta0_true_2 + a1_2 * sin1 + b1_2 * cos1 + a2_2 * sin2 + b2_2 * cos2
+)
+integrals_2 = np.trapz(lam_grid_2, t_grid_ll, axis=1)
+
+
+def min_events_random_fourier(
+    t_events, rng, beta0_true, integrals, a1, b1, a2=None, b2=None
+):
+    N = len(t_events)
+    if N == 0:
+        return np.nan
+
+    perm = rng.permutation(N)
+
+    # build eta_all for all omegas x all events
+    t = t_events
+    s1 = np.sin(omegas[:, None] * t[None, :])
+    c1 = np.cos(omegas[:, None] * t[None, :])
+    eta_all = a1 * s1 + b1 * c1
+
+    if (a2 is not None) and (b2 is not None):
+        s2 = np.sin(2 * omegas[:, None] * t[None, :])
+        c2 = np.cos(2 * omegas[:, None] * t[None, :])
+        eta_all = eta_all + a2 * s2 + b2 * c2
+
+    eta_reordered = eta_all[:, perm]
+    cumsum_eta = np.cumsum(eta_reordered, axis=1)
+
+    P_hat = np.empty(N, dtype=float)
+    for j in range(1, N + 1):
+        sum_eta = cumsum_eta[:, j - 1]
+        logL = beta0_true * j + sum_eta - integrals
+        P_hat[j - 1] = periods[int(np.argmax(logL))]
+
+    within = np.abs(P_hat - P_true) <= err
+    suffix_all_true = np.logical_and.accumulate(within[::-1])[::-1]
+    idx = np.where(suffix_all_true)[0]
+    if len(idx) == 0:
+        return np.nan
+    return float(idx[0] + 1)
+
+
+Kmc = 300
+
+
+def run_mc_for_model(
+    seed_base, beta0_true, integrals, a1, b1, a2=None, b2=None, lam_on_grid=None
+):
+    rng = np.random.default_rng(seed_base)
+    jstars = np.empty(Kmc, dtype=float)
+
+    for k in range(Kmc):
+        t_ev, _ = cdf_inversion_harm(
+            beta0_true, omega_true, T, lam_on_grid=lam_on_grid, n_grid=20000, rng=rng
+        )
+        jstars[k] = min_events_random_fourier(
+            t_ev, rng, beta0_true, integrals, a1, b1, a2=a2, b2=b2
+        )
+
+    jv = jstars[np.isfinite(jstars)]
+    N90 = int(np.quantile(jv, 0.90, method="higher"))
+    N95 = int(np.quantile(jv, 0.95, method="higher"))
+    return jv, N90, N95
+
+
+# TRUE K=1, fit K=1 for period recovery
+jv1, N90_1, N95_1 = run_mc_for_model(
+    seed_base=3100,
+    beta0_true=beta0_true_1,
+    integrals=integrals_1,
+    a1=a1_1,
+    b1=b1_1,
+    a2=None,
+    b2=None,
+    lam_on_grid=lam1,
+)
+
+# TRUE K=2, fit K=2 for period recovery
+jv2, N90_2, N95_2 = run_mc_for_model(
+    seed_base=4100,
+    beta0_true=beta0_true_2,
+    integrals=integrals_2,
+    a1=a1_2,
+    b1=b1_2,
+    a2=a2_2,
+    b2=b2_2,
+    lam_on_grid=lam2,
+)
+
+print(f"Random set across full T, ±{err} years around P_true={P_true}")
+print(f"K=1 (true & fit): N90={N90_1}  N95={N95_1}")
+print(f"K=2 (true & fit): N90={N90_2}  N95={N95_2}")
+
+
+# Optional: success curves on one plot
+def success_curve(jv):
+    N_max = int(np.nanmax(jv))
+    Ns = np.arange(1, N_max + 1)
+    success_prob = np.array([np.mean(jv <= N) for N in Ns])
+    return Ns, success_prob
+
+
+Ns1, sp1 = success_curve(jv1)
+Ns2, sp2 = success_curve(jv2)
+
+plt.figure(figsize=(7, 4))
+plt.plot(Ns1, sp1, lw=2, label=f"K=1 (N90={N90_1}, N95={N95_1})")
+plt.plot(Ns2, sp2, lw=2, ls="--", label=f"K=2 (N90={N90_2}, N95={N95_2})")
+plt.axhline(0.90, ls=":", color="black", label="90%")
+plt.axhline(0.95, ls=":", color="gray", label="95%")
+plt.xlabel("Number of events")
+plt.ylabel("Probability of accurate P̂")
+plt.ylim(0, 1.02)
+plt.legend()
+plt.tight_layout()
+plt.show()
