@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from matplotlib.animation import FuncAnimation, PillowWriter
 from scipy.integrate import trapezoid
+import emcee
+import corner
 
 T = 354.0
 P_true = 11.0
@@ -938,4 +940,159 @@ plt.ylabel("Probability of accurate P̂")
 plt.ylim(0, 1.02)
 plt.legend()
 plt.tight_layout()
+plt.show()
+
+
+# Now let's try MCMC, with our simulated data
+event_times = np.asarray(t_events, dtype=float)
+N_obs = len(event_times)
+print(f"Using full simulated catalog: N_obs={N_obs}, T={T}")
+
+
+## The Priors
+def log_prior(theta, event_times, T, P_min=7.0, P_max=16.0):
+    beta0_, beta1_, logP_, phi_ = theta
+    P_ = np.exp(logP_)
+
+    if not (P_min < P_ < P_max):
+        return -np.inf
+    if not (-3.0 < beta1_ < 3.0):
+        return -np.inf
+    if not (-np.pi <= phi_ <= np.pi):
+        return -np.inf
+    if not (-20.0 < beta0_ < 20.0):
+        return -np.inf
+    rough_rate = np.log((len(event_times) + 1e-9) / (T + 1e-9)) 
+
+    lp = 0.0
+    lp += -0.5 * ((beta1_ - 0.0) / 1.0) ** 2
+    lp += -0.5 * ((beta0_ - rough_rate) / 3.0) ** 2 
+
+    return lp
+
+
+## Posterior log-probability
+def log_probability(theta, event_times, T, P_min=7.0, P_max=16.0, ll_grid=4000):
+    beta0_, beta1_, logP_, phi_ = theta
+
+    lp = log_prior(theta, event_times, T, P_min=P_min, P_max=P_max)
+    if not np.isfinite(lp):
+        return -np.inf
+
+    P_ = np.exp(logP_)
+    omega_ = 2.0 * np.pi / P_
+
+    ll = log_likelihood_params(beta0_, beta1_, omega_, phi_, event_times, T, n_grid=ll_grid)
+    return lp + ll
+
+
+# Period scan
+periods_scan, logL_P_scan, P_hat = scan_period(
+    event_times,
+    beta0_true,
+    beta1_true,
+    phi_true,
+    T,
+    P_min=P_grid_min,
+    P_max=P_grid_max,
+    n_P=nP,
+    ll_grid=2500,
+)
+
+b0g = beta0_grid(event_times, T, width=3.0, n=601)
+logL_b0_scan, b0_hat = scan_beta0(
+    event_times, beta1_true, omega_true, phi_true, T, b0g, ll_grid=2500
+)
+logL_b1_scan, b1_hat = scan_beta1(
+    event_times, beta0_true, omega_true, phi_true, T, b1_grid, ll_grid=2500
+)
+logL_phi_scan, phi_hat = scan_phi(
+    event_times, beta0_true, beta1_true, omega_true, T, phi_grid, ll_grid=2500
+)
+
+theta_center = np.array([b0_hat, b1_hat, np.log(P_hat), phi_hat], dtype=float)
+print("Init center (from scans): [beta0, beta1, logP, phi] =", theta_center)
+print("Init center as P_hat:", np.exp(theta_center[2]))
+
+# Run emcee
+rng = np.random.default_rng(2200)
+
+ndim = 4
+nwalkers = 64 
+
+p0 = theta_center + 1e-2 * rng.standard_normal(size=(nwalkers, ndim))
+
+p0[:, 3] = (p0[:, 3] + np.pi) % (2.0 * np.pi) - np.pi
+
+
+logP_min, logP_max = np.log(P_grid_min), np.log(P_grid_max)
+p0[:, 2] = np.clip(p0[:, 2], logP_min + 1e-6, logP_max - 1e-6)
+
+sampler = emcee.EnsembleSampler(
+    nwalkers,
+    ndim,
+    log_probability,
+    args=(event_times, T),
+    kwargs={"P_min": P_grid_min, "P_max": P_grid_max, "ll_grid": 4000},
+)
+
+nburn = 2000
+state = sampler.run_mcmc(p0, nburn, progress=True)
+sampler.reset()
+
+nsteps = 8000
+sampler.run_mcmc(state, nsteps, progress=True)
+
+print("Mean acceptance fraction:", np.mean(sampler.acceptance_fraction))
+
+
+thin = 10
+flat = sampler.get_chain(discard=0, thin=thin, flat=True)
+
+beta0_s = flat[:, 0]
+beta1_s = flat[:, 1]
+logP_s  = flat[:, 2]
+phi_s   = flat[:, 3]
+
+P_s = np.exp(logP_s)
+phi_s = (phi_s + np.pi) % (2.0 * np.pi) - np.pi 
+
+def q16_50_84(x):
+    return np.percentile(x, [16, 50, 84])
+
+print("\nPosterior (16, 50, 84 percentiles):")
+print("beta0:", q16_50_84(beta0_s), " | true:", beta0_true)
+print("beta1:", q16_50_84(beta1_s), " | true:", beta1_true)
+print("P    :", q16_50_84(P_s),     " | true:", P_true)
+print("phi  :", q16_50_84(phi_s),   " | true:", phi_true)
+
+
+chain = sampler.get_chain()
+
+labels = [r"$\beta_0$", r"$\beta_1$", r"$\log P$", r"$\phi$"]
+truths = [beta0_true, beta1_true, np.log(P_true), phi_true]
+
+fig, axes = plt.subplots(ndim, 1, figsize=(10, 8), sharex=True, constrained_layout=True)
+for i in range(ndim):
+    axes[i].plot(chain[:, :, i], alpha=0.2)
+    axes[i].axhline(truths[i], ls="--", color="black")
+    axes[i].set_ylabel(labels[i])
+axes[-1].set_xlabel("Step")
+plt.show()
+
+# Autocorr time
+try:
+    tau = sampler.get_autocorr_time()
+    print("Autocorr time:", tau)
+except Exception as e:
+    print("Autocorr time unavailable:", repr(e))
+
+# Corner plot
+
+samples_corner = np.column_stack([beta0_s, beta1_s, P_s, phi_s])
+fig = corner.corner(
+    samples_corner,
+    labels=[r"$\beta_0$", r"$\beta_1$", r"$P$", r"$\phi$"],
+    truths=[beta0_true, beta1_true, P_true, phi_true],
+)
 plt.show()
