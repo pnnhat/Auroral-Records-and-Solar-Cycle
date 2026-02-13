@@ -1199,7 +1199,7 @@ theta_center = np.array([b0_hat, b1_hat, np.log(P_hat), phi_hat], dtype=float)
 print("Init center [beta0, beta1, logP, phi] =", theta_center)
 print("Init P_hat =", np.exp(theta_center[2]))
 
-# 5) Run emcee
+# Run emcee
 rng = np.random.default_rng(2200)
 
 ndim = 4
