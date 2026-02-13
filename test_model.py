@@ -1045,7 +1045,6 @@ sampler.run_mcmc(state, nsteps, progress=True)
 
 print("Mean acceptance fraction:", np.mean(sampler.acceptance_fraction))
 
-
 thin = 10
 flat = sampler.get_chain(discard=0, thin=thin, flat=True)
 
@@ -1093,68 +1092,6 @@ fig = corner.corner(
     truths=[beta0_true, beta1_true, P_true, phi_true],
 )
 plt.show()
-
-# Lomb-Scargle periodogram with MCMC uncertainty
-years_event = np.floor(np.asarray(t_events, dtype=float)).astype(int)
-
-year_min = int(years_event.min())
-year_max = int(np.floor(T))
-
-years_full = np.arange(year_min, year_max + 1)
-counts = np.bincount(years_event - year_min, minlength=len(years_full)).astype(float)
-
-counts_full = counts - np.mean(counts)
-
-ls = LombScargle(years_full, counts_full, normalization="psd")
-
-min_period = 7.0
-max_period = 16.0
-
-min_freq = 1.0 / max_period
-max_freq = 1.0 / min_period
-
-Nf = 40000
-frequency = np.linspace(min_freq, max_freq, Nf)
-power_ls = ls.power(frequency)
-period_ls = 1.0 / frequency
-
-def lambda_curve(t, beta0, beta1, P, phi):
-    omega = 2.0 * np.pi / P
-    return np.exp(beta0 + beta1 * np.sin(omega * t + phi))
-
-rng = np.random.default_rng(123)
-M = len(beta0_s)
-n_draws = min(800, M)
-draw_idx = rng.choice(M, size=n_draws, replace=False)
-
-power_stack = np.empty((n_draws, Nf), dtype=float)
-
-for k, idx in enumerate(draw_idx):
-    lam = lambda_curve(years_full.astype(float), beta0_s[idx], beta1_s[idx], P_s[idx], phi_s[idx])
-    lam = lam - np.mean(lam)
-    ls_m = LombScargle(years_full, lam, normalization="psd")
-    power_stack[k] = ls_m.power(frequency)
-
-p16 = np.percentile(power_stack, 16, axis=0)
-p50 = np.percentile(power_stack, 50, axis=0)
-p84 = np.percentile(power_stack, 84, axis=0)
-
-
-plt.figure(figsize=(10, 6))
-plt.plot(period_ls, power_ls, color="black", lw=1.5, label="Raw LS periodogram")
-plt.plot(period_ls, p50, color="black", lw=2.0, linestyle="--", label="MCMC-informed LS periodogram")
-plt.fill_between(period_ls, p16, p84, alpha=0.25, color="black", label="MCMC 16–84% band")
-
-plt.xlabel("Period (years)")
-plt.ylabel("Power")
-plt.title("Lomb–Scargle Periodogram with MCMC Uncertainty")
-plt.xlim(min_period, max_period)
-plt.grid(True, linestyle="--", alpha=0.4)
-plt.axvline(8,  color="blue",  linestyle="--", label="8-year")
-plt.axvline(11, color="red",   linestyle="--", label="11-year")
-plt.axvline(22, color="green", linestyle="--", label="22-year")
-plt.legend()
-plt.tight_layout()
 
 
 # Real data
@@ -1329,76 +1266,5 @@ plt.show()
 tau = sampler.get_autocorr_time()
 print("Autocorr time:", tau)
 
-# Lomb-Scargle periodogram with MCMC uncertainty
-years_event = np.asarray(event_times, dtype=float)
-years_event_int = np.floor(years_event + 1e-9).astype(int)
 
-year_min = int(years_event_int.min())
-year_max = int(np.floor(T + 1e-9))
 
-years_full = np.arange(year_min, year_max + 1)
-
-counts = np.bincount(years_event_int - year_min, minlength=len(years_full)).astype(float)
-counts_full = counts - np.mean(counts)
-
-min_period = 7.0
-max_period = 16.0
-min_freq = 1.0 / max_period
-max_freq = 1.0 / min_period
-
-Nf = 40000
-frequency = np.linspace(min_freq, max_freq, Nf)
-period_ls = 1.0 / frequency
-
-ls_data = LombScargle(years_full.astype(float), counts_full, normalization="psd")
-power_data = ls_data.power(frequency)
-
-def lambda_curve(t, beta0, beta1, P, phi):
-    omega = 2.0 * np.pi / P
-    return np.exp(beta0 + beta1 * np.sin(omega * t + phi))
-
-rng = np.random.default_rng(123)
-M = len(beta0_s)
-
-n_draws = min(800, M)
-draw_idx = rng.choice(M, size=n_draws, replace=False)
-
-power_stack = np.empty((n_draws, Nf), dtype=float)
-
-for k, idx in enumerate(draw_idx):
-    lam = lambda_curve(
-        years_full.astype(float),
-        beta0_s[idx],
-        beta1_s[idx],
-        P_s[idx],
-        phi_s[idx],
-    )
-
-    lam = lam - np.mean(lam)
-
-    ls_m = LombScargle(years_full.astype(float), lam, normalization="psd")
-    power_stack[k] = ls_m.power(frequency)
-
-p16 = np.percentile(power_stack, 16, axis=0)
-p50 = np.percentile(power_stack, 50, axis=0)
-p84 = np.percentile(power_stack, 84, axis=0)
-
-plt.figure(figsize=(10, 6))
-plt.plot(period_ls, power_data, color="black", lw=1.8, label="Raw LS periodogram")
-plt.plot(period_ls, p50, color="black", lw=2.0, linestyle="--", label="MCMC-informed LS periodogram")
-plt.fill_between(period_ls, p16, p84, color="black", alpha=0.25, label="MCMC 16–84% band")
-plt.xlabel("Period (years)")
-plt.ylabel("Power")
-plt.title(f"Lomb–Scargle Periodogram (Korean Aurora)")
-plt.xlim(min_period, max_period)
-plt.grid(True, linestyle="--", alpha=0.4)
-plt.axvline(8,  color="blue",  linestyle="--", label="8-year")
-plt.axvline(11, color="red",   linestyle="--", label="11-year")
-plt.axvline(22, color="green", linestyle="--", label="22-year")
-tick_candidates = [6, 8, 10, 11, 12, 14, 16, 20, 22, 30]
-ticks = [t for t in tick_candidates if (min_period <= t <= max_period)]
-if len(ticks) > 0:
-    plt.xticks(ticks)
-plt.legend(frameon=False)
-plt.tight_layout()
-plt.show()
