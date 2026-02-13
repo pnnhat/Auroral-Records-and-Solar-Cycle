@@ -5,6 +5,8 @@ from matplotlib.animation import FuncAnimation, PillowWriter
 from scipy.integrate import trapezoid
 import emcee
 import corner
+import pandas as pd
+from astropy.timeseries import LombScargle
 
 T = 354.0
 P_true = 11.0
@@ -970,7 +972,6 @@ def log_prior(theta, event_times, T, P_min=7.0, P_max=16.0):
 
     return lp
 
-
 ## Posterior log-probability
 def log_probability(theta, event_times, T, P_min=7.0, P_max=16.0, ll_grid=4000):
     beta0_, beta1_, logP_, phi_ = theta
@@ -1072,6 +1073,7 @@ chain = sampler.get_chain()
 labels = [r"$\beta_0$", r"$\beta_1$", r"$\log P$", r"$\phi$"]
 truths = [beta0_true, beta1_true, np.log(P_true), phi_true]
 
+# Trace plots
 fig, axes = plt.subplots(ndim, 1, figsize=(10, 8), sharex=True, constrained_layout=True)
 for i in range(ndim):
     axes[i].plot(chain[:, :, i], alpha=0.2)
@@ -1088,11 +1090,328 @@ except Exception as e:
     print("Autocorr time unavailable:", repr(e))
 
 # Corner plot
-
 samples_corner = np.column_stack([beta0_s, beta1_s, P_s, phi_s])
 fig = corner.corner(
     samples_corner,
     labels=[r"$\beta_0$", r"$\beta_1$", r"$P$", r"$\phi$"],
     truths=[beta0_true, beta1_true, P_true, phi_true],
 )
+plt.show()
+
+
+years_event = np.floor(np.asarray(t_events, dtype=float)).astype(int)
+
+year_min = int(years_event.min())
+year_max = int(np.floor(T))
+
+years_full = np.arange(year_min, year_max + 1)
+counts = np.bincount(years_event - year_min, minlength=len(years_full)).astype(float)
+
+counts_full = counts - np.mean(counts)
+
+ls = LombScargle(years_full, counts_full, normalization="psd")
+
+min_period = 7.0
+max_period = 16.0
+
+min_freq = 1.0 / max_period
+max_freq = 1.0 / min_period
+
+Nf = 40000
+frequency = np.linspace(min_freq, max_freq, Nf)
+power_ls = ls.power(frequency)
+period_ls = 1.0 / frequency
+
+def lambda_curve(t, beta0, beta1, P, phi):
+    omega = 2.0 * np.pi / P
+    return np.exp(beta0 + beta1 * np.sin(omega * t + phi))
+
+rng = np.random.default_rng(123)
+M = len(beta0_s)
+n_draws = min(800, M)
+draw_idx = rng.choice(M, size=n_draws, replace=False)
+
+power_stack = np.empty((n_draws, Nf), dtype=float)
+
+for k, idx in enumerate(draw_idx):
+    lam = lambda_curve(years_full.astype(float), beta0_s[idx], beta1_s[idx], P_s[idx], phi_s[idx])
+    lam = lam - np.mean(lam)
+    ls_m = LombScargle(years_full, lam, normalization="psd")
+    power_stack[k] = ls_m.power(frequency)
+
+p16 = np.percentile(power_stack, 16, axis=0)
+p50 = np.percentile(power_stack, 50, axis=0)
+p84 = np.percentile(power_stack, 84, axis=0)
+
+
+plt.figure(figsize=(10, 6))
+plt.plot(period_ls, power_ls, color="black", lw=1.5, label="Raw LS periodogram")
+plt.plot(period_ls, p50, color="black", lw=2.0, linestyle="--", label="MCMC-informed LS periodogram")
+plt.fill_between(period_ls, p16, p84, alpha=0.25, color="black", label="MCMC 16–84% band")
+
+plt.xlabel("Period (years)")
+plt.ylabel("Power")
+plt.title("Lomb–Scargle Periodogram with MCMC Uncertainty")
+plt.xlim(min_period, max_period)
+plt.grid(True, linestyle="--", alpha=0.4)
+plt.axvline(8,  color="blue",  linestyle="--", label="8-year")
+plt.axvline(11, color="red",   linestyle="--", label="11-year")
+plt.axvline(22, color="green", linestyle="--", label="22-year")
+plt.legend()
+plt.tight_layout()
+
+
+# Real data
+test_korea = pd.read_excel("data/Korean_Aurora_Grades_918_1392.xlsx")
+
+years_real = test_korea["Year"].astype(int).values
+t0_real = int(years_real.min())
+t_real = (years_real - t0_real).astype(float) 
+T_real = float(t_real.max())
+
+event_times = np.asarray(t_real, dtype=float)
+T = T_real
+
+print(f"Real data: N={len(event_times)}, t0={t0_real}, T={T:.1f} years")
+print("First few event times (years since t0):", event_times[:10])
+
+P_grid_min, P_grid_max, nP = 7.0, 16.0, 900
+phi_grid = np.linspace(-np.pi, np.pi, 721)
+b1_grid  = np.linspace(-1.5, 1.5, 601)
+
+def log_prior(theta, event_times, T, P_min=7.0, P_max=16.0):
+    beta0_, beta1_, logP_, phi_ = theta
+    P_ = np.exp(logP_)
+    if not (P_min < P_ < P_max):
+        return -np.inf
+    if not (-3.0 < beta1_ < 3.0):
+        return -np.inf
+    if not (-np.pi <= phi_ <= np.pi):
+        return -np.inf
+    if not (-20.0 < beta0_ < 20.0):
+        return -np.inf
+    rough_rate = np.log((len(event_times) + 1e-9) / (T + 1e-9))
+    lp = 0.0
+    lp += -0.5 * ((beta1_ - 0.0) / 1.0) ** 2 
+    lp += -0.5 * ((beta0_ - rough_rate) / 3.0) ** 2  
+    return lp
+
+
+# 3) Posterior: log prior + NHPP log-likelihood
+def log_probability(theta, event_times, T, P_min=7.0, P_max=16.0, ll_grid=4000):
+    beta0_, beta1_, logP_, phi_ = theta
+
+    lp = log_prior(theta, event_times, T, P_min=P_min, P_max=P_max)
+    if not np.isfinite(lp):
+        return -np.inf
+
+    P_ = np.exp(logP_)
+    omega_ = 2.0 * np.pi / P_
+
+    ll = log_likelihood_params(beta0_, beta1_, omega_, phi_, event_times, T, n_grid=ll_grid)
+    return lp + ll
+
+beta0_guess = np.log((len(event_times) + 1e-9) / (T + 1e-9))
+
+beta1_guess = 0.3
+phi_guess   = 0.0
+
+# Scan P holding other parameteres fixed
+periods_scan, logL_P_scan, P_hat = scan_period(
+    event_times,
+    beta0_guess,
+    beta1_guess,
+    phi_guess,
+    T,
+    P_min=P_grid_min,
+    P_max=P_grid_max,
+    n_P=nP,
+    ll_grid=2500,
+)
+
+omega_hat = 2.0 * np.pi / P_hat
+
+logL_phi_scan, phi_hat = scan_phi(
+    event_times,
+    beta0_guess,
+    beta1_guess,
+    omega_hat,
+    T,
+    phi_grid,
+    ll_grid=2500,
+)
+
+logL_b1_scan, b1_hat = scan_beta1(
+    event_times,
+    beta0_guess,
+    omega_hat,
+    phi_hat,
+    T,
+    b1_grid,
+    ll_grid=2500,
+)
+
+b0g = beta0_grid(event_times, T, width=3.0, n=601)
+logL_b0_scan, b0_hat = scan_beta0(
+    event_times,
+    b1_hat,
+    omega_hat,
+    phi_hat,
+    T,
+    b0g,
+    ll_grid=2500,
+)
+
+theta_center = np.array([b0_hat, b1_hat, np.log(P_hat), phi_hat], dtype=float)
+print("Init center [beta0, beta1, logP, phi] =", theta_center)
+print("Init P_hat =", np.exp(theta_center[2]))
+
+# 5) Run emcee
+rng = np.random.default_rng(2200)
+
+ndim = 4
+nwalkers = 64
+
+p0 = theta_center + 1e-2 * rng.standard_normal(size=(nwalkers, ndim))
+
+# wrap phi to [-pi, pi]
+p0[:, 3] = (p0[:, 3] + np.pi) % (2.0 * np.pi) - np.pi
+
+# clip logP to bounds (avoid immediate -inf)
+logP_min, logP_max = np.log(P_grid_min), np.log(P_grid_max)
+p0[:, 2] = np.clip(p0[:, 2], logP_min + 1e-6, logP_max - 1e-6)
+
+sampler = emcee.EnsembleSampler(
+    nwalkers,
+    ndim,
+    log_probability,
+    args=(event_times, T),
+    kwargs={"P_min": P_grid_min, "P_max": P_grid_max, "ll_grid": 4000},
+)
+
+# burn-in
+nburn = 3000
+state = sampler.run_mcmc(p0, nburn, progress=True)
+sampler.reset()
+
+# production
+nsteps = 12000
+sampler.run_mcmc(state, nsteps, progress=True)
+
+print("Mean acceptance fraction:", np.mean(sampler.acceptance_fraction))
+
+# 6) Summaries (uncertainties)
+thin = 10
+flat = sampler.get_chain(thin=thin, flat=True)
+
+beta0_s = flat[:, 0]
+beta1_s = flat[:, 1]
+P_s     = np.exp(flat[:, 2])
+phi_s   = flat[:, 3]
+phi_s   = (phi_s + np.pi) % (2.0 * np.pi) - np.pi
+
+def q16_50_84(x):
+    return np.percentile(x, [16, 50, 84])
+
+print("\nPosterior (16, 50, 84):")
+print("beta0:", q16_50_84(beta0_s))
+print("beta1:", q16_50_84(beta1_s))
+print("P    :", q16_50_84(P_s))
+print("phi  :", q16_50_84(phi_s))
+
+# 7) Trace plots
+chain = sampler.get_chain() 
+labels = [r"$\beta_0$", r"$\beta_1$", r"$\log P$", r"$\phi$"]
+
+fig, axes = plt.subplots(ndim, 1, figsize=(10, 8), sharex=True, constrained_layout=True)
+for i in range(ndim):
+    axes[i].plot(chain[:, :, i], alpha=0.2)
+    axes[i].set_ylabel(labels[i])
+axes[-1].set_xlabel("Step")
+plt.show()
+
+# Autocorr time
+try:
+    tau = sampler.get_autocorr_time()
+    print("Autocorr time:", tau)
+except Exception as e:
+    print("Autocorr time unavailable:", repr(e))
+
+
+
+
+years_event = np.asarray(event_times, dtype=float)
+years_event_int = np.floor(years_event + 1e-9).astype(int)
+
+year_min = int(years_event_int.min())
+year_max = int(np.floor(T + 1e-9))
+
+years_full = np.arange(year_min, year_max + 1)
+
+counts = np.bincount(years_event_int - year_min, minlength=len(years_full)).astype(float)
+counts_full = counts - np.mean(counts)
+
+min_period = 7.0
+max_period = 16.0
+min_freq = 1.0 / max_period
+max_freq = 1.0 / min_period
+
+Nf = 40000
+frequency = np.linspace(min_freq, max_freq, Nf)
+period_ls = 1.0 / frequency
+
+ls_data = LombScargle(years_full.astype(float), counts_full, normalization="psd")
+power_data = ls_data.power(frequency)
+
+def lambda_curve(t, beta0, beta1, P, phi):
+    omega = 2.0 * np.pi / P
+    return np.exp(beta0 + beta1 * np.sin(omega * t + phi))
+
+rng = np.random.default_rng(123)
+M = len(beta0_s)
+
+n_draws = min(800, M)
+draw_idx = rng.choice(M, size=n_draws, replace=False)
+
+power_stack = np.empty((n_draws, Nf), dtype=float)
+
+for k, idx in enumerate(draw_idx):
+    lam = lambda_curve(
+        years_full.astype(float),
+        beta0_s[idx],
+        beta1_s[idx],
+        P_s[idx],
+        phi_s[idx],
+    )
+
+    lam = lam - np.mean(lam)
+
+    ls_m = LombScargle(years_full.astype(float), lam, normalization="psd")
+    power_stack[k] = ls_m.power(frequency)
+
+p16 = np.percentile(power_stack, 16, axis=0)
+p50 = np.percentile(power_stack, 50, axis=0)
+p84 = np.percentile(power_stack, 84, axis=0)
+
+
+plt.figure(figsize=(10, 6))
+plt.plot(period_ls, power_data, color="black", lw=1.8, label="Raw LS periodogram")
+plt.plot(period_ls, p50, color="black", lw=2.0, linestyle="--", label="MCMC-informed LS periodogram")
+plt.fill_between(period_ls, p16, p84, color="black", alpha=0.25, label="MCMC 16–84% band")
+plt.xlabel("Period (years)")
+plt.ylabel("Power")
+plt.title(f"Lomb–Scargle Periodogram (Korean Aurora)")
+plt.xlim(min_period, max_period)
+plt.grid(True, linestyle="--", alpha=0.4)
+
+plt.axvline(8,  color="blue",  linestyle="--", label="8-year")
+plt.axvline(11, color="red",   linestyle="--", label="11-year")
+plt.axvline(22, color="green", linestyle="--", label="22-year")
+tick_candidates = [6, 8, 10, 11, 12, 14, 16, 20, 22, 30]
+ticks = [t for t in tick_candidates if (min_period <= t <= max_period)]
+if len(ticks) > 0:
+    plt.xticks(ticks)
+
+plt.legend(frameon=False)
+plt.tight_layout()
 plt.show()
