@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from matplotlib.animation import FuncAnimation, PillowWriter
+from scipy.integrate import trapezoid
 
 T = 354.0
 P_true = 11.0
@@ -14,7 +15,7 @@ N_target = 200
 def beta0(beta1, omega, phi, T, N_target, n_grid=20000):
     t_grid = np.linspace(0.0, T, n_grid)
     base = np.exp(beta1 * np.sin(omega * t_grid + phi))
-    integral_base = np.trapz(base, t_grid)
+    integral_base = trapezoid(base, t_grid)
     beta0 = np.log(N_target / integral_base)
     return beta0
 
@@ -91,12 +92,12 @@ def log_likelihood_params(beta0, beta1, omega, phi, event_times, T, n_grid=4000)
         # logL = - integral λ
         t_grid = np.linspace(0.0, T, n_grid)
         lam_grid = np.exp(beta0 + beta1 * np.sin(omega * t_grid + phi))
-        return -np.trapz(lam_grid, t_grid)
+        return -trapezoid(lam_grid, t_grid)
 
     term_events = np.sum(beta0 + beta1 * np.sin(omega * event_times + phi))
     t_grid = np.linspace(0.0, T, n_grid)
     lam_grid = np.exp(beta0 + beta1 * np.sin(omega * t_grid + phi))
-    integral = np.trapz(lam_grid, t_grid)
+    integral = trapezoid(lam_grid, t_grid)
     return term_events - integral
 
 
@@ -284,7 +285,7 @@ t_grid_ll = np.linspace(0.0, T, ll_grid)
 
 sin_grid = np.sin(omegas[:, None] * t_grid_ll[None, :] + phi_true)
 lam_grid = np.exp(beta0_true + beta1_true * sin_grid)
-integrals = np.trapz(lam_grid, t_grid_ll, axis=1)
+integrals = trapezoid(lam_grid, t_grid_ll, axis=1)
 
 err = 0.5  # years
 
@@ -576,7 +577,7 @@ def beta0_2harm(a1, b1, a2, b2, omega, T, N_target, n_grid=20000):
         + a2 * np.cos(2 * omega * t)
         + b2 * np.sin(2 * omega * t)
     )
-    return np.log(N_target / np.trapz(base, t))
+    return np.log(N_target / trapezoid(base, t))
 
 
 # 1 harmonic
@@ -588,7 +589,7 @@ def lambda_func_1harm(t, beta0, omega, a1, b1):
 def beta0_1harm(a1, b1, omega, T, N_target, n_grid=20000):
     t = np.linspace(0.0, T, n_grid)
     base = np.exp(a1 * np.cos(omega * t) + b1 * np.sin(omega * t))
-    return np.log(N_target / np.trapz(base, t))
+    return np.log(N_target / trapezoid(base, t))
 
 
 def log_likelihood_1harm(
@@ -615,7 +616,7 @@ def log_likelihood_1harm(
 
             term = np.sum(b0 + a1 * c1 + b1 * s1)
             lam_grid = np.exp(b0 + a1 * c1g + b1 * s1g)
-            integral = np.trapz(lam_grid, t_grid)
+            integral = trapezoid(lam_grid, t_grid)
             L = term - integral
 
             if L > bestL:
@@ -653,7 +654,7 @@ def log_likelihood_2harm(
 
                     term = np.sum(b0 + a1 * c1 + b1 * s1 + a2 * c2 + b2 * s2)
                     lam_grid = np.exp(b0 + a1 * c1g + b1 * s1g + a2 * c2g + b2 * s2g)
-                    integral = np.trapz(lam_grid, t_grid)
+                    integral = trapezoid(lam_grid, t_grid)
                     L = term - integral
 
                     if L > bestL:
@@ -817,7 +818,7 @@ lam_grid_1 = np.exp(
     + a1_1 * np.sin(omegas[:, None] * t_grid_ll[None, :])
     + b1_1 * np.cos(omegas[:, None] * t_grid_ll[None, :])
 )
-integrals_1 = np.trapz(lam_grid_1, t_grid_ll, axis=1)
+integrals_1 = trapezoid(lam_grid_1, t_grid_ll, axis=1)
 
 # K=2 integrals(P)
 sin1 = np.sin(omegas[:, None] * t_grid_ll[None, :])
@@ -827,7 +828,7 @@ cos2 = np.cos(2 * omegas[:, None] * t_grid_ll[None, :])
 lam_grid_2 = np.exp(
     beta0_true_2 + a1_2 * sin1 + b1_2 * cos1 + a2_2 * sin2 + b2_2 * cos2
 )
-integrals_2 = np.trapz(lam_grid_2, t_grid_ll, axis=1)
+integrals_2 = trapezoid(lam_grid_2, t_grid_ll, axis=1)
 
 
 def min_events_random_fourier(
