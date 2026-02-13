@@ -1265,6 +1265,3 @@ plt.show()
 # Autocorr time
 tau = sampler.get_autocorr_time()
 print("Autocorr time:", tau)
-
-
-
