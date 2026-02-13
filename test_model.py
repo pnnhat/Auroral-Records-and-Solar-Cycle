@@ -812,7 +812,7 @@ def lam2(t, beta0, omega):
     return lambda_func_2harm(t, beta0, omega, a1_2, b1_2, a2_2, b2_2)
 
 
-# K=1 integrals(P)
+# Get integrals for K=1
 lam_grid_1 = np.exp(
     beta0_true_1
     + a1_1 * np.sin(omegas[:, None] * t_grid_ll[None, :])
@@ -820,7 +820,7 @@ lam_grid_1 = np.exp(
 )
 integrals_1 = trapezoid(lam_grid_1, t_grid_ll, axis=1)
 
-# K=2 integrals(P)
+# Not get integrals for K=2
 sin1 = np.sin(omegas[:, None] * t_grid_ll[None, :])
 cos1 = np.cos(omegas[:, None] * t_grid_ll[None, :])
 sin2 = np.sin(2 * omegas[:, None] * t_grid_ll[None, :])
@@ -840,7 +840,6 @@ def min_events_random_fourier(
 
     perm = rng.permutation(N)
 
-    # build eta_all for all omegas x all events
     t = t_events
     s1 = np.sin(omegas[:, None] * t[None, :])
     c1 = np.cos(omegas[:, None] * t[None, :])
@@ -891,7 +890,7 @@ def run_mc_for_model(
     return jv, N90, N95
 
 
-# TRUE K=1, fit K=1 for period recovery
+# True K=1, fit K=1
 jv1, N90_1, N95_1 = run_mc_for_model(
     seed_base=3100,
     beta0_true=beta0_true_1,
@@ -903,7 +902,7 @@ jv1, N90_1, N95_1 = run_mc_for_model(
     lam_on_grid=lam1,
 )
 
-# TRUE K=2, fit K=2 for period recovery
+# True K=2, fit K=2
 jv2, N90_2, N95_2 = run_mc_for_model(
     seed_base=4100,
     beta0_true=beta0_true_2,
@@ -919,8 +918,6 @@ print(f"Random set across full T, ±{err} years around P_true={P_true}")
 print(f"K=1 (true & fit): N90={N90_1}  N95={N95_1}")
 print(f"K=2 (true & fit): N90={N90_2}  N95={N95_2}")
 
-
-# Optional: success curves on one plot
 def success_curve(jv):
     N_max = int(np.nanmax(jv))
     Ns = np.arange(1, N_max + 1)
