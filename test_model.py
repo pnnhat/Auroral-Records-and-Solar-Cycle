@@ -1251,7 +1251,7 @@ print("beta1:", q16_50_84(beta1_s))
 print("P    :", q16_50_84(P_s))
 print("phi  :", q16_50_84(phi_s))
 
-# 7) Trace plots
+# Trace plots
 chain = sampler.get_chain() 
 labels = [r"$\beta_0$", r"$\beta_1$", r"$\log P$", r"$\phi$"]
 
