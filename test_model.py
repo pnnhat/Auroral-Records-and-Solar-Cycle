@@ -1083,11 +1083,8 @@ axes[-1].set_xlabel("Step")
 plt.show()
 
 # Autocorr time
-try:
-    tau = sampler.get_autocorr_time()
-    print("Autocorr time:", tau)
-except Exception as e:
-    print("Autocorr time unavailable:", repr(e))
+tau = sampler.get_autocorr_time()
+print("Autocorr time:", tau)
 
 # Corner plot
 samples_corner = np.column_stack([beta0_s, beta1_s, P_s, phi_s])
@@ -1098,7 +1095,7 @@ fig = corner.corner(
 )
 plt.show()
 
-
+# Lomb-Scargle periodogram with MCMC uncertainty
 years_event = np.floor(np.asarray(t_events, dtype=float)).astype(int)
 
 year_min = int(years_event.min())
@@ -1197,7 +1194,7 @@ def log_prior(theta, event_times, T, P_min=7.0, P_max=16.0):
     return lp
 
 
-# 3) Posterior: log prior + NHPP log-likelihood
+# Posterior: log prior + NHPP log-likelihood
 def log_probability(theta, event_times, T, P_min=7.0, P_max=16.0, ll_grid=4000):
     beta0_, beta1_, logP_, phi_ = theta
 
@@ -1277,7 +1274,6 @@ p0 = theta_center + 1e-2 * rng.standard_normal(size=(nwalkers, ndim))
 # wrap phi to [-pi, pi]
 p0[:, 3] = (p0[:, 3] + np.pi) % (2.0 * np.pi) - np.pi
 
-# clip logP to bounds (avoid immediate -inf)
 logP_min, logP_max = np.log(P_grid_min), np.log(P_grid_max)
 p0[:, 2] = np.clip(p0[:, 2], logP_min + 1e-6, logP_max - 1e-6)
 
@@ -1300,7 +1296,7 @@ sampler.run_mcmc(state, nsteps, progress=True)
 
 print("Mean acceptance fraction:", np.mean(sampler.acceptance_fraction))
 
-# 6) Summaries (uncertainties)
+# Summaries (uncertainties)
 thin = 10
 flat = sampler.get_chain(thin=thin, flat=True)
 
@@ -1331,15 +1327,10 @@ axes[-1].set_xlabel("Step")
 plt.show()
 
 # Autocorr time
-try:
-    tau = sampler.get_autocorr_time()
-    print("Autocorr time:", tau)
-except Exception as e:
-    print("Autocorr time unavailable:", repr(e))
+tau = sampler.get_autocorr_time()
+print("Autocorr time:", tau)
 
-
-
-
+# Lomb-Scargle periodogram with MCMC uncertainty
 years_event = np.asarray(event_times, dtype=float)
 years_event_int = np.floor(years_event + 1e-9).astype(int)
 
@@ -1393,7 +1384,6 @@ p16 = np.percentile(power_stack, 16, axis=0)
 p50 = np.percentile(power_stack, 50, axis=0)
 p84 = np.percentile(power_stack, 84, axis=0)
 
-
 plt.figure(figsize=(10, 6))
 plt.plot(period_ls, power_data, color="black", lw=1.8, label="Raw LS periodogram")
 plt.plot(period_ls, p50, color="black", lw=2.0, linestyle="--", label="MCMC-informed LS periodogram")
@@ -1403,7 +1393,6 @@ plt.ylabel("Power")
 plt.title(f"Lomb–Scargle Periodogram (Korean Aurora)")
 plt.xlim(min_period, max_period)
 plt.grid(True, linestyle="--", alpha=0.4)
-
 plt.axvline(8,  color="blue",  linestyle="--", label="8-year")
 plt.axvline(11, color="red",   linestyle="--", label="11-year")
 plt.axvline(22, color="green", linestyle="--", label="22-year")
@@ -1411,7 +1400,6 @@ tick_candidates = [6, 8, 10, 11, 12, 14, 16, 20, 22, 30]
 ticks = [t for t in tick_candidates if (min_period <= t <= max_period)]
 if len(ticks) > 0:
     plt.xticks(ticks)
-
 plt.legend(frameon=False)
 plt.tight_layout()
 plt.show()
