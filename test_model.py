@@ -1025,7 +1025,6 @@ p0 = theta_center + 1e-2 * rng.standard_normal(size=(nwalkers, ndim))
 
 p0[:, 3] = (p0[:, 3] + np.pi) % (2.0 * np.pi) - np.pi
 
-
 logP_min, logP_max = np.log(P_grid_min), np.log(P_grid_max)
 p0[:, 2] = np.clip(p0[:, 2], logP_min + 1e-6, logP_max - 1e-6)
 
