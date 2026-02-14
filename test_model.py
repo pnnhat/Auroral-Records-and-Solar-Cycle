@@ -789,7 +789,7 @@ def cdf_inversion_harm(beta0, omega, T, lam_on_grid, n_grid=20000, rng=None, see
     t_events.sort()
     return t_events, Lambda_T
 
-
+# Get the minimum number of events for Fourier models
 rng0 = np.random.default_rng(2200)
 
 # TRUE K=1
@@ -1018,7 +1018,7 @@ print("Init center as P_hat:", np.exp(theta_center[2]))
 # Run emcee
 rng = np.random.default_rng(2200)
 
-ndim = 4
+ndim = 4 
 nwalkers = 64 
 
 p0 = theta_center + 1e-2 * rng.standard_normal(size=(nwalkers, ndim))
@@ -1036,11 +1036,11 @@ sampler = emcee.EnsembleSampler(
     kwargs={"P_min": P_grid_min, "P_max": P_grid_max, "ll_grid": 4000},
 )
 
-nburn = 2000
+nburn = 50000
 state = sampler.run_mcmc(p0, nburn, progress=True)
 sampler.reset()
 
-nsteps = 8000
+nsteps = 30000
 sampler.run_mcmc(state, nsteps, progress=True)
 
 print("Mean acceptance fraction:", np.mean(sampler.acceptance_fraction))
@@ -1079,6 +1079,7 @@ for i in range(ndim):
     axes[i].set_ylabel(labels[i])
 axes[-1].set_xlabel("Step")
 plt.show()
+
 
 # Autocorr time
 tau = sampler.get_autocorr_time()
