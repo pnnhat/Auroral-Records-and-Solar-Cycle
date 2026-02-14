@@ -1068,17 +1068,37 @@ print("phi  :", q16_50_84(phi_s),   " | true:", phi_true)
 
 chain = sampler.get_chain()
 
-labels = [r"$\beta_0$", r"$\beta_1$", r"$\log P$", r"$\phi$"]
-truths = [beta0_true, beta1_true, np.log(P_true), phi_true]
+labels = [r"$\beta_0$", r"$\beta_1$", r"$P$", r"$\phi$"]
+
+P_chain = np.exp(chain[:, :, 2])
 
 # Trace plots
-fig, axes = plt.subplots(ndim, 1, figsize=(10, 8), sharex=True, constrained_layout=True)
+fig, axes = plt.subplots(ndim, 1, figsize=(10, 8), 
+                         sharex=True, constrained_layout=True)
 for i in range(ndim):
-    axes[i].plot(chain[:, :, i], alpha=0.2)
-    axes[i].axhline(truths[i], ls="--", color="black")
-    axes[i].set_ylabel(labels[i])
-axes[-1].set_xlabel("Step")
+    ax = axes[i]
+
+    if i == 2:
+        # Plot P instead of logP
+        for w in range(chain.shape[1]):
+            ax.plot(P_chain[:, w], alpha=0.2, color ="blue")
+        ax.axhline(P_true, ls="--", color="black")
+    else:
+        for w in range(chain.shape[1]):
+            ax.plot(chain[:, w, i], alpha=0.2, color ="blue")
+        if i == 0:
+            ax.axhline(beta0_true, ls="--", color="black")
+        elif i == 1:
+            ax.axhline(beta1_true, ls="--", color="black")
+        elif i == 3:
+            ax.axhline(phi_true, ls="--", color="black")
+
+    ax.set_ylabel(labels[i], fontsize=12)
+
+axes[-1].set_xlabel("Step", fontsize=12)
 plt.show()
+
+
 
 
 # Autocorr time
@@ -1091,6 +1111,7 @@ fig = corner.corner(
     samples_corner,
     labels=[r"$\beta_0$", r"$\beta_1$", r"$P$", r"$\phi$"],
     truths=[beta0_true, beta1_true, P_true, phi_true],
+    color="blue"
 )
 plt.show()
 
