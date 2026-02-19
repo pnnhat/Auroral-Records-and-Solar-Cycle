@@ -1060,7 +1060,7 @@ phi_s = (phi_s + np.pi) % (2.0 * np.pi) - np.pi
 def q16_50_84(x):
     return np.percentile(x, [16, 50, 84])
 
-print("\nPosterior (16, 50, 84 percentiles):")
+print("Posterior (16, 50, 84 percentiles):")
 print("beta0:", q16_50_84(beta0_s), " | true:", beta0_true)
 print("beta1:", q16_50_84(beta1_s), " | true:", beta1_true)
 print("P    :", q16_50_84(P_s),     " | true:", P_true)
