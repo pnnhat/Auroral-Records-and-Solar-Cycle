@@ -944,8 +944,7 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
-
-# Now let's try MCMC, with our simulated data
+# try MCMC, with our simulated data
 event_times = np.asarray(t_events, dtype=float)
 N_obs = len(event_times)
 print(f"Using full simulated catalog: N_obs={N_obs}, T={T}")
@@ -1016,10 +1015,11 @@ print("Init center (from scans): [beta0, beta1, logP, phi] =", theta_center)
 print("Init center as P_hat:", np.exp(theta_center[2]))
 
 # Run emcee
-rng = np.random.default_rng(2200)
-
 ndim = 4 
 nwalkers = 64 
+
+seed = 2200
+rng = np.random.default_rng(seed)
 
 p0 = theta_center + 1e-2 * rng.standard_normal(size=(nwalkers, ndim))
 
@@ -1036,12 +1036,13 @@ sampler = emcee.EnsembleSampler(
     kwargs={"P_min": P_grid_min, "P_max": P_grid_max, "ll_grid": 4000},
 )
 
+
 nburn = 50000
-state = sampler.run_mcmc(p0, nburn, progress=True)
+state = sampler.run_mcmc(p0, nburn, progress=True, rstate0 = rng)
 sampler.reset()
 
 nsteps = 30000
-sampler.run_mcmc(state, nsteps, progress=True)
+sampler.run_mcmc(state, nsteps, progress=True, rstate0 = rng)
 
 print("Mean acceptance fraction:", np.mean(sampler.acceptance_fraction))
 
@@ -1098,21 +1099,90 @@ for i in range(ndim):
 axes[-1].set_xlabel("Step", fontsize=12)
 plt.show()
 
-
-
-
-# Autocorr time
-tau = sampler.get_autocorr_time()
-print("Autocorr time:", tau)
-
 # Corner plot
+nsteps, nwalkers, ndim = chain.shape
+
+flat = chain.reshape(-1, ndim)
+
+beta0_s = flat[:, 0]
+beta1_s = flat[:, 1]
+P_s     = np.exp(flat[:, 2])
+phi_s   = flat[:, 3]
+
+phi_s = (phi_s + np.pi) % (2*np.pi) - np.pi
+
 samples_corner = np.column_stack([beta0_s, beta1_s, P_s, phi_s])
+
 fig = corner.corner(
     samples_corner,
     labels=[r"$\beta_0$", r"$\beta_1$", r"$P$", r"$\phi$"],
-    truths=[beta0_true, beta1_true, P_true, phi_true],
-    color="blue"
+    truths=[beta0_true, beta1_true, P_true, phi_true], color="blue", show_titles=True, title_fmt=".3f", title_kwargs={"fontsize": 12}
 )
+plt.show()
+
+
+# Posterior predictive checks
+n_draws = 100
+draw_idx = rng.integers(0, len(flat), size=n_draws)
+theta_draws = flat[draw_idx]
+
+t_fine = np.linspace(0.0, T, 2000)
+
+n_bins = 60
+bin_edges = np.linspace(0.0, T, n_bins + 1)
+obs_counts, _ = np.histogram(t_events, bins=bin_edges)
+
+t_obs = np.sort(np.asarray(t_events))
+N_obs = len(t_obs)
+
+lam_draws = np.empty((n_draws, t_fine.size), dtype=float)
+sim_counts_draws = np.empty((n_draws, n_bins), dtype=int)
+sim_events_list = []
+
+for k, th in enumerate(theta_draws):
+    b0, b1, logP, phi = th
+    P = np.exp(logP)
+    omega = 2.0 * np.pi / P
+
+    lam_draws[k] = lambda_func(t_fine, b0, b1, omega, phi)
+
+    t_sim, _ = cdf_inversion(b0, b1, omega, phi, T, n_grid=20000, rng=rng)
+    sim_events_list.append(t_sim)
+
+    sim_counts_draws[k], _ = np.histogram(t_sim, bins=bin_edges)
+
+q16 = np.percentile(sim_counts_draws, 16, axis=0)
+q50 = np.percentile(sim_counts_draws, 50, axis=0)
+q84 = np.percentile(sim_counts_draws, 84, axis=0)
+
+fig, (ax1, ax2) = plt.subplots(
+    2, 1, figsize=(10, 8),
+    sharex=True,
+    gridspec_kw={"height_ratios": [2, 1.5]},
+    dpi=90
+)
+fig.subplots_adjust(hspace=0.08)
+
+# Panel 1: intensity overlays
+for k in range(n_draws):
+    ax1.plot(t_fine, lam_draws[k], alpha=0.08, color="blue")
+
+ax1.vlines(t_obs, 0.0, 0.02 * np.max(lam_draws), alpha=0.35, color="black")
+ax1.set_ylabel(r"$\lambda(t)$")
+
+# Panel 2: binned counts
+ax2.step(bin_edges[:-1], obs_counts, where="post", lw=2, color="black", label="Observed counts")
+
+for t_sim in sim_events_list:
+    sim_c, _ = np.histogram(t_sim, bins=bin_edges)
+    ax2.step(bin_edges[:-1], sim_c, where="post", alpha=0.08, color="blue")
+ax2.fill_between(bin_edges[:-1], q16, q84, step="post", alpha=0.25, color="blue", label="PPC 16–84%")
+ax2.step(bin_edges[:-1], q50, where="post", lw=2, color="blue", label="PPC median")
+
+ax2.set_ylabel("Counts")
+ax2.legend(loc="upper right")
+
+
 plt.show()
 
 
