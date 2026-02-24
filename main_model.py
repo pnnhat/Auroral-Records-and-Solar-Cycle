@@ -442,7 +442,7 @@ anim = FuncAnimation(
     blit=False,
 )
 
-anim.save("random_subset_animation.gif", writer=PillowWriter(fps=10))
+anim.save("random_animation.gif", writer=PillowWriter(fps=10))
 plt.show()
 
 
@@ -555,7 +555,7 @@ for r in results:
 N90s = np.array([r["N90"] for r in results], dtype=int)
 N95s = np.array([r["N95"] for r in results], dtype=int)
 
-print("\nRange across seeds:")
+print("Range across seeds:")
 print(f"Minimum events for 90% confidence:: min={N90s.min()}, max={N90s.max()}")
 print(f"Minimum evetns for 95% confidence: min={N95s.min()}, max={N95s.max()}")
 
@@ -824,7 +824,7 @@ lam_grid_1 = np.exp(
 )
 integrals_1 = trapezoid(lam_grid_1, t_grid_ll, axis=1)
 
-# Not get integrals for K=2
+# get integrals for K=2
 sin1 = np.sin(omegas[:, None] * t_grid_ll[None, :])
 cos1 = np.cos(omegas[:, None] * t_grid_ll[None, :])
 sin2 = np.sin(2 * omegas[:, None] * t_grid_ll[None, :])
@@ -971,7 +971,7 @@ def log_prior(theta, event_times, T, P_min=7.0, P_max=16.0):
 
     return lp
 
-## Posterior log-probability
+## Posterior log probability
 def log_probability(theta, event_times, T, P_min=7.0, P_max=16.0, ll_grid=4000):
     beta0_, beta1_, logP_, phi_ = theta
 
@@ -986,7 +986,8 @@ def log_probability(theta, event_times, T, P_min=7.0, P_max=16.0, ll_grid=4000):
     return lp + ll
 
 
-# Period scan
+# Scan
+# These parameters are the global maximum likelihood estimate, before MCMC sampling
 periods_scan, logL_P_scan, P_hat = scan_period(
     event_times,
     beta0_true,
@@ -1011,7 +1012,7 @@ logL_phi_scan, phi_hat = scan_phi(
 )
 
 theta_center = np.array([b0_hat, b1_hat, np.log(P_hat), phi_hat], dtype=float)
-print("Init center (from scans): [beta0, beta1, logP, phi] =", theta_center)
+print("Init center: [beta0, beta1, logP, phi] =", theta_center)
 print("Init center as P_hat:", np.exp(theta_center[2]))
 
 # Run emcee
@@ -1147,8 +1148,8 @@ for k in idx:
     om = 2.0 * np.pi / P
 
     lam = np.exp(b0 + b1 * np.sin(om * t_grid + ph))
-    plt.plot(t_grid, lam, alpha=0.12, lw=1, color="blue", label ="Posterior predictive")
-
+    plt.plot(t_grid, lam, alpha=0.10, lw=1, color="blue")
+plt.plot(t_events, np.zeros_like(t_events), "|", color="black", alpha=0.4)
 plt.xlabel("Events Time")
 plt.ylabel("Rate")
 plt.legend(loc="best")
@@ -1170,48 +1171,13 @@ T = T_real
 print(f"Real data: N={len(event_times)}, t0={t0_real}, T={T:.1f} years")
 print("First few event times (years since t0):", event_times[:10])
 
-P_grid_min, P_grid_max, nP = 7.0, 16.0, 900
-phi_grid = np.linspace(-np.pi, np.pi, 721)
-b1_grid  = np.linspace(-1.5, 1.5, 601)
+rough_rate = np.log((len(event_times) + 1e-9) / (T + 1e-9))
 
-def log_prior(theta, event_times, T, P_min=7.0, P_max=16.0):
-    beta0_, beta1_, logP_, phi_ = theta
-    P_ = np.exp(logP_)
-    if not (P_min < P_ < P_max):
-        return -np.inf
-    if not (-3.0 < beta1_ < 3.0):
-        return -np.inf
-    if not (-np.pi <= phi_ <= np.pi):
-        return -np.inf
-    if not (-20.0 < beta0_ < 20.0):
-        return -np.inf
-    rough_rate = np.log((len(event_times) + 1e-9) / (T + 1e-9))
-    lp = 0.0
-    lp += -0.5 * ((beta1_ - 0.0) / 1.0) ** 2 
-    lp += -0.5 * ((beta0_ - rough_rate) / 3.0) ** 2  
-    return lp
-
-
-# Posterior: log prior + NHPP log-likelihood
-def log_probability(theta, event_times, T, P_min=7.0, P_max=16.0, ll_grid=4000):
-    beta0_, beta1_, logP_, phi_ = theta
-
-    lp = log_prior(theta, event_times, T, P_min=P_min, P_max=P_max)
-    if not np.isfinite(lp):
-        return -np.inf
-
-    P_ = np.exp(logP_)
-    omega_ = 2.0 * np.pi / P_
-
-    ll = log_likelihood_params(beta0_, beta1_, omega_, phi_, event_times, T, n_grid=ll_grid)
-    return lp + ll
-
-beta0_guess = np.log((len(event_times) + 1e-9) / (T + 1e-9))
-
-beta1_guess = 0.3
+beta0_guess = rough_rate
+beta1_guess = 0.0
 phi_guess   = 0.0
 
-# Scan P holding other parameteres fixed
+# Scan parameters
 periods_scan, logL_P_scan, P_hat = scan_period(
     event_times,
     beta0_guess,
@@ -1226,52 +1192,34 @@ periods_scan, logL_P_scan, P_hat = scan_period(
 
 omega_hat = 2.0 * np.pi / P_hat
 
-logL_phi_scan, phi_hat = scan_phi(
-    event_times,
-    beta0_guess,
-    beta1_guess,
-    omega_hat,
-    T,
-    phi_grid,
-    ll_grid=2500,
+b0g = beta0_grid(event_times, T, width=3.0, n=601)
+logL_b0_scan, b0_hat = scan_beta0(
+    event_times, beta1_guess, omega_hat, phi_guess, T, b0g, ll_grid=2500
 )
 
 logL_b1_scan, b1_hat = scan_beta1(
-    event_times,
-    beta0_guess,
-    omega_hat,
-    phi_hat,
-    T,
-    b1_grid,
-    ll_grid=2500,
+    event_times, b0_hat, omega_hat, phi_guess, T, b1_grid, ll_grid=2500
 )
 
-b0g = beta0_grid(event_times, T, width=3.0, n=601)
-logL_b0_scan, b0_hat = scan_beta0(
-    event_times,
-    b1_hat,
-    omega_hat,
-    phi_hat,
-    T,
-    b0g,
-    ll_grid=2500,
+logL_phi_scan, phi_hat = scan_phi(
+    event_times, b0_hat, b1_hat, omega_hat, T, phi_grid, ll_grid=2500
 )
 
 theta_center = np.array([b0_hat, b1_hat, np.log(P_hat), phi_hat], dtype=float)
-print("Init center [beta0, beta1, logP, phi] =", theta_center)
-print("Init P_hat =", np.exp(theta_center[2]))
+print("Init center: [beta0, beta1, logP, phi] =", theta_center)
+print("Init center as P_hat:", np.exp(theta_center[2]))
+
 
 # Run emcee
-rng = np.random.default_rng(2200)
-
 ndim = 4
 nwalkers = 64
 
+seed = 2200
+rng = np.random.default_rng(seed)
+
 p0 = theta_center + 1e-2 * rng.standard_normal(size=(nwalkers, ndim))
 
-# wrap phi to [-pi, pi]
-p0[:, 3] = (p0[:, 3] + np.pi) % (2.0 * np.pi) - np.pi
-
+# wrap phi 
 logP_min, logP_max = np.log(P_grid_min), np.log(P_grid_max)
 p0[:, 2] = np.clip(p0[:, 2], logP_min + 1e-6, logP_max - 1e-6)
 
@@ -1283,47 +1231,103 @@ sampler = emcee.EnsembleSampler(
     kwargs={"P_min": P_grid_min, "P_max": P_grid_max, "ll_grid": 4000},
 )
 
-# burn-in
-nburn = 3000
-state = sampler.run_mcmc(p0, nburn, progress=True)
+nburn = 50000
+state = sampler.run_mcmc(p0, nburn, progress=True, rstate0=rng)
 sampler.reset()
 
-# production
-nsteps = 12000
-sampler.run_mcmc(state, nsteps, progress=True)
+nsteps = 30000
+sampler.run_mcmc(state, nsteps, progress=True, rstate0=rng)
 
 print("Mean acceptance fraction:", np.mean(sampler.acceptance_fraction))
 
 # Summaries (uncertainties)
 thin = 10
-flat = sampler.get_chain(thin=thin, flat=True)
+flat = sampler.get_chain(discard=0, thin=thin, flat=True)
 
 beta0_s = flat[:, 0]
 beta1_s = flat[:, 1]
-P_s     = np.exp(flat[:, 2])
+logP_s  = flat[:, 2]
 phi_s   = flat[:, 3]
-phi_s   = (phi_s + np.pi) % (2.0 * np.pi) - np.pi
 
-def q16_50_84(x):
-    return np.percentile(x, [16, 50, 84])
+P_s = np.exp(logP_s)
+phi_s = (phi_s + np.pi) % (2.0 * np.pi) - np.pi
 
-print("\nPosterior (16, 50, 84):")
+print("Posterior (16, 50, 84 percentiles):")
 print("beta0:", q16_50_84(beta0_s))
 print("beta1:", q16_50_84(beta1_s))
 print("P    :", q16_50_84(P_s))
 print("phi  :", q16_50_84(phi_s))
     
 # Trace plots
-chain = sampler.get_chain() 
-labels = [r"$\beta_0$", r"$\beta_1$", r"$\log P$", r"$\phi$"]
+chain = sampler.get_chain()
+labels = [r"$\beta_0$", r"$\beta_1$", r"$P$", r"$\phi$"]
+P_chain = np.exp(chain[:, :, 2])
 
 fig, axes = plt.subplots(ndim, 1, figsize=(10, 8), sharex=True, constrained_layout=True)
 for i in range(ndim):
-    axes[i].plot(chain[:, :, i], alpha=0.2)
-    axes[i].set_ylabel(labels[i])
-axes[-1].set_xlabel("Step")
+    ax = axes[i]
+    if i == 2:
+        for w in range(chain.shape[1]):
+            ax.plot(P_chain[:, w], alpha=0.2, color="blue")
+        ax.axhline(P_hat, ls="--", color="black", label="P_hat")
+        ax.legend(frameon=False)
+    else:
+        for w in range(chain.shape[1]):
+            ax.plot(chain[:, w, i], alpha=0.2, color="blue")
+    ax.set_ylabel(labels[i], fontsize=12)
+
+axes[-1].set_xlabel("Step", fontsize=12)
 plt.show()
 
-# Autocorr time
-tau = sampler.get_autocorr_time()
-print("Autocorr time:", tau)
+# Corner plot
+nsteps, nwalkers, ndim = chain.shape
+flat2 = chain.reshape(-1, ndim)
+
+beta0_s2 = flat2[:, 0]
+beta1_s2 = flat2[:, 1]
+P_s2     = np.exp(flat2[:, 2])
+phi_s2   = (flat2[:, 3] + np.pi) % (2*np.pi) - np.pi
+
+samples_corner = np.column_stack([beta0_s2, beta1_s2, P_s2, phi_s2])
+
+fig = corner.corner(
+    samples_corner,
+    labels=[r"$\beta_0$", r"$\beta_1$", r"$P$", r"$\phi$"],
+    truths=[b0_hat, b1_hat, P_hat, phi_hat], 
+    color="blue",
+    show_titles=True,
+    title_fmt=".3f",
+    title_kwargs={"fontsize": 12},
+)
+plt.show()
+
+# Posterior predictive checks
+t_grid = np.linspace(0.0, T, 2000)
+
+bins = 60
+counts, edges = np.histogram(event_times, bins=bins, range=(0.0, T))
+bin_width = edges[1] - edges[0]
+rate_hist = counts / bin_width
+centers = 0.5 * (edges[:-1] + edges[1:])
+
+plt.figure(figsize=(10, 5))
+plt.step(centers, rate_hist, where="mid", lw=2, label="Empirical rate", color="black")
+
+rng = np.random.default_rng(2200)
+n_draws = 300
+idx = rng.integers(0, len(beta0_s), size=n_draws)
+
+for k in idx:
+    b0 = beta0_s[k]
+    b1 = beta1_s[k]
+    P  = P_s[k]
+    ph = phi_s[k]
+    om = 2.0 * np.pi / P
+    lam = np.exp(b0 + b1 * np.sin(om * t_grid + ph))
+    plt.plot(t_grid, lam, alpha=0.12, lw=1, color="blue")
+
+plt.xlabel("Time (years since t0)")
+plt.ylabel("Rate")
+plt.legend(loc="best")
+plt.tight_layout()
+plt.show()
