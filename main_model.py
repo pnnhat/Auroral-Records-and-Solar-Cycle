@@ -15,7 +15,6 @@ beta1_true = 0.6
 phi_true = np.pi / 4
 N_target = 200
 
-
 def beta0(beta1, omega, phi, T, N_target, n_grid=20000):
     t_grid = np.linspace(0.0, T, n_grid)
     base = np.exp(beta1 * np.sin(omega * t_grid + phi))
@@ -1304,7 +1303,7 @@ plt.show()
 # Posterior predictive checks
 t_grid = np.linspace(0.0, T, 2000)
 
-bins = 60
+bins = 50
 counts, edges = np.histogram(event_times, bins=bins, range=(0.0, T))
 bin_width = edges[1] - edges[0]
 rate_hist = counts / bin_width
