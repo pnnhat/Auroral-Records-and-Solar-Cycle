@@ -8,12 +8,12 @@ import corner
 import pandas as pd
 from astropy.timeseries import LombScargle
 
-T = 354.0
+T = 787.0
 P_true = 11.0
 omega_true = 2 * np.pi / P_true
 beta1_true = 0.6
-phi_true = np.pi / 4
-N_target = 200
+phi_true = np.pi / 2
+N_target = 788
 
 def beta0(beta1, omega, phi, T, N_target, n_grid=20000):
     t_grid = np.linspace(0.0, T, n_grid)
@@ -158,9 +158,8 @@ def scan_phi(prefix, beta0, beta1, omega, T, phi_grid, ll_grid=2500):
 
 
 P_grid_min, P_grid_max, nP = 7.0, 16.0, 900
-phi_grid = np.linspace(-np.pi, np.pi, 721)
-b1_grid = np.linspace(-1.5, 1.5, 601)
-
+phi_grid = np.linspace(0.0, 2.0 * np.pi, 721)
+b1_grid = np.linspace(0.0, 1.5, 601)
 
 def beta0_grid(prefix, T, width=3.0, n=601):
     n_evt = len(prefix)
@@ -274,7 +273,7 @@ anim = FuncAnimation(
     blit=False,
 )
 
-anim.save("animation.gif", writer=PillowWriter(fps=10))
+anim.save("animation.gif", writer=PillowWriter(fps=20))
 plt.show()
 
 #! What's the minimum number of events needed to get a good estimate of the period?
@@ -441,7 +440,7 @@ anim = FuncAnimation(
     blit=False,
 )
 
-anim.save("random_animation.gif", writer=PillowWriter(fps=10))
+anim.save("random_animation.gif", writer=PillowWriter(fps=20))
 plt.show()
 
 
@@ -711,55 +710,9 @@ print(
 )
 print("\nTrue 2-harm parameters:")
 print(
-    f""
     f"  beta0={beta0_true_2:.4f}, a1={a1_true:.4f}, b1={b1_true:.4f}, "
     f"a2={a2_true:.4f}, b2={b2_true:.4f}"
 )
-
-# What if the true is 1 harmonic, fit 2 harmonics?
-A1 = 0.7
-rng = np.random.default_rng(2200)
-phi1 = rng.uniform(-np.pi, np.pi)
-
-# again
-a1_true = A1 * np.cos(phi1)
-b1_true = A1 * np.sin(phi1)
-omega_true = 2 * np.pi / P_true
-
-beta0_true_1 = beta0_1harm(a1_true, b1_true, omega_true, T, N_target)
-a1_grid = np.linspace(-1.2, 1.2, 121)
-b1_grid = np.linspace(-1.2, 1.2, 121)
-a2_grid = np.linspace(-0.8, 0.8, 81)
-b2_grid = np.linspace(-0.8, 0.8, 81)
-
-L2_at_trueP, (b0_2hat, a1_hat, b1_hat, a2_hat, b2_hat) = log_likelihood_2harm(
-    t_events, T, N_target, omega_true, a1_grid, b1_grid, a2_grid, b2_grid, ll_grid=4000
-)
-
-t_plot = np.linspace(0.0, T, 3000)
-lam_true = lambda_func_1harm(t_plot, beta0_true_1, omega_true, a1_true, b1_true)
-lam_fit2 = lambda_func_2harm(
-    t_plot, b0_2hat, omega_true, a1_hat, b1_hat, a2_hat, b2_hat
-)
-
-plt.figure(figsize=(10, 4))
-plt.plot(t_plot, lam_true, lw=2, label="True intensity (1 harmonic)", color="black")
-plt.plot(t_plot, lam_fit2, lw=2, ls="--", label="Best 2-harm fit", color="C1")
-plt.xlabel("t")
-plt.ylabel("λ(t)")
-plt.legend()
-plt.tight_layout()
-plt.show()
-
-print("Best 2-harm fit at P_true = 11.0:")
-print(
-    f"  beta0={b0_2hat:.4f}, a1={a1_hat:.4f}, b1={b1_hat:.4f}, "
-    f"a2={a2_hat:.4f}, b2={b2_hat:.4f}, logL={L2_at_trueP:.2f}"
-)
-
-print("\nTrue 1-harm parameters:")
-print(f"  beta0={beta0_true_1:.4f}, a1={a1_true:.4f}, b1={b1_true:.4f}")
-
 
 def cdf_inversion_harm(beta0, omega, T, lam_on_grid, n_grid=20000, rng=None, seed=None):
     if rng is None:
@@ -951,14 +904,15 @@ print(f"Using full simulated catalog: N_obs={N_obs}, T={T}")
 
 ## The Priors
 def log_prior(theta, event_times, T, P_min=7.0, P_max=16.0):
-    beta0_, beta1_, logP_, phi_ = theta
+    beta0_, beta1_, logP_, logphi_ = theta
     P_ = np.exp(logP_)
+    phi_ = np.exp(logphi_)
 
     if not (P_min < P_ < P_max):
         return -np.inf
-    if not (-3.0 < beta1_ < 3.0):
+    if not (0.0 < beta1_ < 3.0):
         return -np.inf
-    if not (-np.pi <= phi_ <= np.pi):
+    if not (0.0 < phi_ < np.pi):
         return -np.inf
     if not (-20.0 < beta0_ < 20.0):
         return -np.inf
@@ -967,12 +921,14 @@ def log_prior(theta, event_times, T, P_min=7.0, P_max=16.0):
     lp = 0.0
     lp += -0.5 * ((beta1_ - 0.0) / 1.0) ** 2
     lp += -0.5 * ((beta0_ - rough_rate) / 3.0) ** 2 
+    
+    lp += logphi_
 
     return lp
 
 ## Posterior log probability
 def log_probability(theta, event_times, T, P_min=7.0, P_max=16.0, ll_grid=4000):
-    beta0_, beta1_, logP_, phi_ = theta
+    beta0_, beta1_, logP_, logphi_ = theta
 
     lp = log_prior(theta, event_times, T, P_min=P_min, P_max=P_max)
     if not np.isfinite(lp):
@@ -980,10 +936,10 @@ def log_probability(theta, event_times, T, P_min=7.0, P_max=16.0, ll_grid=4000):
 
     P_ = np.exp(logP_)
     omega_ = 2.0 * np.pi / P_
+    phi_ = np.exp(logphi_)
 
     ll = log_likelihood_params(beta0_, beta1_, omega_, phi_, event_times, T, n_grid=ll_grid)
     return lp + ll
-
 
 # Scan
 # These parameters are the global maximum likelihood estimate, before MCMC sampling
@@ -1010,8 +966,8 @@ logL_phi_scan, phi_hat = scan_phi(
     event_times, beta0_true, beta1_true, omega_true, T, phi_grid, ll_grid=2500
 )
 
-theta_center = np.array([b0_hat, b1_hat, np.log(P_hat), phi_hat], dtype=float)
-print("Init center: [beta0, beta1, logP, phi] =", theta_center)
+theta_center = np.array([b0_hat, b1_hat, np.log(P_hat), np.log(phi_hat)], dtype=float)
+print("Init center: [beta0, beta1, logP, logphi] =", theta_center)
 print("Init center as P_hat:", np.exp(theta_center[2]))
 
 # Run emcee
@@ -1028,6 +984,10 @@ p0[:, 3] = (p0[:, 3] + np.pi) % (2.0 * np.pi) - np.pi
 logP_min, logP_max = np.log(P_grid_min), np.log(P_grid_max)
 p0[:, 2] = np.clip(p0[:, 2], logP_min + 1e-6, logP_max - 1e-6)
 
+logphi_min = np.log(1e-12)
+logphi_max = np.log(np.pi - 1e-12)
+p0[:, 3] = np.clip(p0[:, 3], logphi_min, logphi_max)
+
 sampler = emcee.EnsembleSampler(
     nwalkers,
     ndim,
@@ -1035,7 +995,6 @@ sampler = emcee.EnsembleSampler(
     args=(event_times, T),
     kwargs={"P_min": P_grid_min, "P_max": P_grid_max, "ll_grid": 4000},
 )
-
 
 nburn = 50000
 state = sampler.run_mcmc(p0, nburn, progress=True, rstate0 = rng)
@@ -1052,10 +1011,10 @@ flat = sampler.get_chain(discard=0, thin=thin, flat=True)
 beta0_s = flat[:, 0]
 beta1_s = flat[:, 1]
 logP_s  = flat[:, 2]
-phi_s   = flat[:, 3]
+logphi_s   = flat[:, 3]
 
 P_s = np.exp(logP_s)
-phi_s = (phi_s + np.pi) % (2.0 * np.pi) - np.pi 
+phi_s = np.exp(logphi_s)
 
 def q16_50_84(x):
     return np.percentile(x, [16, 50, 84])
@@ -1072,27 +1031,29 @@ chain = sampler.get_chain()
 labels = [r"$\beta_0$", r"$\beta_1$", r"$P$", r"$\phi$"]
 
 P_chain = np.exp(chain[:, :, 2])
+phi_chain = np.exp(chain[:, :, 3])
 
 # Trace plots
-fig, axes = plt.subplots(ndim, 1, figsize=(10, 8), 
+fig, axes = plt.subplots(ndim, 1, figsize=(10, 8),
                          sharex=True, constrained_layout=True)
 for i in range(ndim):
     ax = axes[i]
 
     if i == 2:
-        # Plot P instead of logP
         for w in range(chain.shape[1]):
-            ax.plot(P_chain[:, w], alpha=0.2, color ="blue")
+            ax.plot(P_chain[:, w], alpha=0.2, color="blue")
         ax.axhline(P_true, ls="--", color="black")
+    elif i == 3:
+        for w in range(chain.shape[1]):
+            ax.plot(phi_chain[:, w], alpha=0.2, color="blue")
+        ax.axhline(phi_true, ls="--", color="black")
     else:
         for w in range(chain.shape[1]):
-            ax.plot(chain[:, w, i], alpha=0.2, color ="blue")
+            ax.plot(chain[:, w, i], alpha=0.2, color="blue")
         if i == 0:
             ax.axhline(beta0_true, ls="--", color="black")
         elif i == 1:
             ax.axhline(beta1_true, ls="--", color="black")
-        elif i == 3:
-            ax.axhline(phi_true, ls="--", color="black")
 
     ax.set_ylabel(labels[i], fontsize=12)
 
@@ -1101,37 +1062,37 @@ plt.show()
 
 # Corner plot
 nsteps, nwalkers, ndim = chain.shape
-
 flat = chain.reshape(-1, ndim)
 
 beta0_s = flat[:, 0]
 beta1_s = flat[:, 1]
 P_s     = np.exp(flat[:, 2])
-phi_s   = flat[:, 3]
-
-phi_s = (phi_s + np.pi) % (2*np.pi) - np.pi
+phi_s   = np.exp(flat[:, 3])
 
 samples_corner = np.column_stack([beta0_s, beta1_s, P_s, phi_s])
 
 fig = corner.corner(
     samples_corner,
     labels=[r"$\beta_0$", r"$\beta_1$", r"$P$", r"$\phi$"],
-    truths=[beta0_true, beta1_true, P_true, phi_true], color="blue", show_titles=True, title_fmt=".3f", title_kwargs={"fontsize": 12}
+    truths=[beta0_true, beta1_true, P_true, phi_true],
+    color="blue",
+    show_titles=True,
+    title_fmt=".3f",
+    title_kwargs={"fontsize": 12},
 )
 plt.show()
-
 
 # Posterior predictive checks
 t_grid = np.linspace(0.0, T, 2000)
 
 bins = 60
-counts, edges = np.histogram(t_events, bins=bins, range=(0.0, T))
+counts, edges = np.histogram(event_times, bins=bins, range=(0.0, T))
 bin_width = edges[1] - edges[0]
 rate_hist = counts / bin_width
 centers = 0.5 * (edges[:-1] + edges[1:])
 
 plt.figure(figsize=(10, 5))
-plt.step(centers, rate_hist, where="mid", lw=2, 
+plt.step(centers, rate_hist, where="mid", lw=2,
          label="Empirical rate", color="black")
 
 # Draw 300 posterior samples and plot their rate curves
@@ -1148,7 +1109,8 @@ for k in idx:
 
     lam = np.exp(b0 + b1 * np.sin(om * t_grid + ph))
     plt.plot(t_grid, lam, alpha=0.10, lw=1, color="blue")
-plt.plot(t_events, np.zeros_like(t_events), "|", color="black", alpha=0.4)
+
+plt.plot(event_times, np.zeros_like(event_times), "|", color="black", alpha=0.4)
 plt.xlabel("Events Time")
 plt.ylabel("Rate")
 plt.legend(loc="best")
@@ -1157,9 +1119,9 @@ plt.show()
 
 
 # Real data
-test_korea = pd.read_excel("data/Korean_Aurora_Grades_918_1392.xlsx")
+korean = pd.read_excel("data/KoreanAuroraRecords/Korean_Auroral_Full.xlsx")
 
-years_real = test_korea["Year"].astype(int).values
+years_real = korean["Year"].astype(int).values
 t0_real = int(years_real.min())
 t_real = (years_real - t0_real).astype(float) 
 T_real = float(t_real.max())
@@ -1171,10 +1133,9 @@ print(f"Real data: N={len(event_times)}, t0={t0_real}, T={T:.1f} years")
 print("First few event times (years since t0):", event_times[:10])
 
 rough_rate = np.log((len(event_times) + 1e-9) / (T + 1e-9))
-
 beta0_guess = rough_rate
-beta1_guess = 0.0
-phi_guess   = 0.0
+beta1_guess = 0.5
+phi_guess = 0.5
 
 # Scan parameters
 periods_scan, logL_P_scan, P_hat = scan_period(
@@ -1204,10 +1165,14 @@ logL_phi_scan, phi_hat = scan_phi(
     event_times, b0_hat, b1_hat, omega_hat, T, phi_grid, ll_grid=2500
 )
 
-theta_center = np.array([b0_hat, b1_hat, np.log(P_hat), phi_hat], dtype=float)
-print("Init center: [beta0, beta1, logP, phi] =", theta_center)
-print("Init center as P_hat:", np.exp(theta_center[2]))
+phi_hat = float(phi_hat) % (2.0 * np.pi)
+if phi_hat >= np.pi:
+    phi_hat = phi_hat - np.pi
+phi_hat = np.clip(phi_hat, 1e-12, np.pi - 1e-12)
 
+theta_center = np.array([b0_hat, b1_hat, np.log(P_hat), np.log(phi_hat)], dtype=float)
+print("Init center: [beta0, beta1, logP, logphi] =", theta_center)
+print("Init center as P_hat:", np.exp(theta_center[2]))
 
 # Run emcee
 ndim = 4
@@ -1221,6 +1186,10 @@ p0 = theta_center + 1e-2 * rng.standard_normal(size=(nwalkers, ndim))
 # wrap phi 
 logP_min, logP_max = np.log(P_grid_min), np.log(P_grid_max)
 p0[:, 2] = np.clip(p0[:, 2], logP_min + 1e-6, logP_max - 1e-6)
+
+logphi_min = np.log(1e-12)
+logphi_max = np.log(np.pi - 1e-12)
+p0[:, 3] = np.clip(p0[:, 3], logphi_min, logphi_max)
 
 sampler = emcee.EnsembleSampler(
     nwalkers,
@@ -1239,17 +1208,17 @@ sampler.run_mcmc(state, nsteps, progress=True, rstate0=rng)
 
 print("Mean acceptance fraction:", np.mean(sampler.acceptance_fraction))
 
-# Summaries (uncertainties)
+# Summaries
 thin = 10
 flat = sampler.get_chain(discard=0, thin=thin, flat=True)
 
 beta0_s = flat[:, 0]
 beta1_s = flat[:, 1]
 logP_s  = flat[:, 2]
-phi_s   = flat[:, 3]
+logphi_s   = flat[:, 3]
 
 P_s = np.exp(logP_s)
-phi_s = (phi_s + np.pi) % (2.0 * np.pi) - np.pi
+phi_s = np.exp(logphi_s)
 
 print("Posterior (16, 50, 84 percentiles):")
 print("beta0:", q16_50_84(beta0_s))
@@ -1261,6 +1230,7 @@ print("phi  :", q16_50_84(phi_s))
 chain = sampler.get_chain()
 labels = [r"$\beta_0$", r"$\beta_1$", r"$P$", r"$\phi$"]
 P_chain = np.exp(chain[:, :, 2])
+phi_chain = np.exp(chain[:, :, 3])
 
 fig, axes = plt.subplots(ndim, 1, figsize=(10, 8), sharex=True, constrained_layout=True)
 for i in range(ndim):
@@ -1269,6 +1239,10 @@ for i in range(ndim):
         for w in range(chain.shape[1]):
             ax.plot(P_chain[:, w], alpha=0.2, color="blue")
         ax.axhline(P_hat, ls="--", color="black", label="P_hat")
+        ax.legend(frameon=False)
+    elif i == 3:
+        for w in range(chain.shape[1]):
+            ax.plot(phi_chain[:, w], alpha=0.2, color="blue")
         ax.legend(frameon=False)
     else:
         for w in range(chain.shape[1]):
@@ -1285,20 +1259,21 @@ flat2 = chain.reshape(-1, ndim)
 beta0_s2 = flat2[:, 0]
 beta1_s2 = flat2[:, 1]
 P_s2     = np.exp(flat2[:, 2])
-phi_s2   = (flat2[:, 3] + np.pi) % (2*np.pi) - np.pi
+phi_s2   = np.exp(flat2[:, 3])
 
 samples_corner = np.column_stack([beta0_s2, beta1_s2, P_s2, phi_s2])
 
 fig = corner.corner(
     samples_corner,
     labels=[r"$\beta_0$", r"$\beta_1$", r"$P$", r"$\phi$"],
-    truths=[b0_hat, b1_hat, P_hat, phi_hat], 
+    truths=[b0_hat, b1_hat, P_hat, np.exp(theta_center[3])],
     color="blue",
     show_titles=True,
     title_fmt=".3f",
     title_kwargs={"fontsize": 12},
 )
 plt.show()
+
 
 # Posterior predictive checks
 t_grid = np.linspace(0.0, T, 2000)
@@ -1330,3 +1305,6 @@ plt.ylabel("Rate")
 plt.legend(loc="best")
 plt.tight_layout()
 plt.show()
+
+
+#####################################

@@ -6,7 +6,7 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.fft import rfft, rfftfreq
 from astropy.timeseries import LombScargle
 
-korean = pd.read_excel("data/KoreanAuroraRecords/Ancient Korean Aurora.xlsx")
+korean = pd.read_excel("data/auroral_records_optionA.xlsx")
 chinese = pd.read_excel("data/ChineseDynastyRecords/Chinese Aurora Records.xlsx")
 
 # Stacked Histogram
@@ -49,7 +49,7 @@ plt.tight_layout()
 plt.show()
 
 # Periodogram Analysis for Aurora Records
-years_event = pd.concat([korean["Year"], chinese["Year"]]).dropna().astype(int)
+years_event = pd.concat([korean["Year"]]).dropna().astype(int)
 year_min = years_event.min()
 year_max = years_event.max()
 

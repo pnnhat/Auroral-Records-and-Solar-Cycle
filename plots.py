@@ -4,9 +4,61 @@ import seaborn as sns
 import numpy as np
 from astropy.timeseries import LombScargle
 
-korean = pd.read_excel("data/KoreanAuroraRecords/Ancient Korean Aurora.xlsx")
-chinese = pd.read_excel("data/ChineseDynastyRecords/Chinese Aurora Records.xlsx")
+korean = pd.read_excel("data/KoreanAuroraRecords/Korean_Auroral_Full.xlsx")
+## Histogram of Korean auroral records
+year = korean["Year"].astype(int).values
+plt.figure(figsize=(12,4))
 
+plt.hist(
+    year,
+    bins=np.arange(year.min(), year.max() + 2, 1),
+    color="black",
+    edgecolor="black"
+)
+
+plt.xlabel("Year")
+plt.ylabel("Number of Records")
+
+plt.xlim(year.min(), year.max())
+
+plt.xticks([1000,1100,1200,1300,1400,1500,1600,1700])
+
+plt.tight_layout()
+plt.show()
+
+
+## Korean as event-series
+year = korean["Year"].astype(int).to_numpy()
+year_min = int(year.min())
+year_max = int(year.max())
+years = np.arange(year_min, year_max + 1)
+yearly_counts = pd.Series(1, index=year).groupby(level=0).sum()
+counts = np.array([float(yearly_counts.loc[y]) if y in yearly_counts.index else 0.0
+                   for y in years], dtype=float)
+counts = counts - counts.mean()
+min_period = 6.0
+max_period = 110.0
+nf = 60000
+frequency = np.linspace(1.0 / max_period, 1.0 / min_period, nf)
+period = 1.0 / frequency
+
+ls = LombScargle(years, counts, normalization="psd")
+power = np.maximum(ls.power(frequency), 0.0)
+
+plt.figure(figsize=(10, 6))
+plt.plot(period, power, color="black")
+plt.xlabel("Period (years)")
+plt.ylabel("Power")
+plt.xlim(min_period, max_period)
+plt.grid(True, linestyle="--", alpha=0.4)
+plt.axvline(11.0, color="red", linestyle="--", alpha=0.8, label="~11-year")
+plt.xticks([6, 8, 10, 20, 40, 60, 80, 100])
+plt.legend(frameon=False)
+plt.tight_layout()
+plt.show()
+
+
+chinese = pd.read_excel("data/ChineseDynastyRecords/Chinese Aurora Records.xlsx")
 test_korea = pd.read_excel("data/Korean_Aurora_Grades_918_1392.xlsx")
 
 # Stem plot
@@ -30,7 +82,7 @@ plt.grid(False)
 plt.tight_layout()
 plt.show()
 
-# Periodogram Analysis for Korean Aurora Records (as yearly binned data)
+# Periodogram Analysis for Korean Aurora Records
 year = test_korea["Year"].astype(int).values
 magni = test_korea["Magnitude"].astype(float).values
 
@@ -62,12 +114,12 @@ max_period = 110.0
 min_freq = 1.0 / max_period
 max_freq = 1.0 / min_period
 
-nf = 60000  # number of frequency points
+nf = 60000
 frequency = np.linspace(min_freq, max_freq, nf)
 power = ls.power(frequency)
 power = np.maximum(power, 0.0)
 
-period = 1 / frequency  # convert to period
+period = 1 / frequency
 
 plt.figure(figsize=(10, 6))
 plt.plot(period, power, color="black")
@@ -78,166 +130,71 @@ plt.xlim(min_period, max_period)
 plt.grid(True, linestyle="--", alpha=0.4)
 plt.axvline(11.4, color="red", linestyle="--", label="~11-year", alpha=0.8)
 plt.xticks([6, 8, 10, 20, 40, 60, 80, 100])
-plt.legend(frameon=False)
-plt.tight_layout()
-plt.show()
-
-# zoom in
-year = test_korea["Year"].astype(int).values
-magni = test_korea["Magnitude"].astype(float).values
-
-year_min = year.min()
-year_max = year.max()
-years = np.arange(year_min, year_max + 1)
-
-yearly_amp = pd.Series(magni, index=year).groupby(level=0).sum()
-
-amp = []
-for y in years:
-    if y in yearly_amp.index:
-        amp.append(yearly_amp.loc[y])
-    else:
-        amp.append(0.0)
-
-w = 40
-baseline = (
-    pd.Series(amp).rolling(window=w, center=True, min_periods=1).mean().to_numpy()
-)
-amp_hp = amp - baseline
-
-ls = LombScargle(years, amp_hp, normalization="psd")
-
-min_period = 6.0
-max_period = 20.0
-min_freq = 1.0 / max_period
-max_freq = 1.0 / min_period
-
-nf = 60000
-frequency = np.linspace(min_freq, max_freq, nf)
-power = ls.power(frequency)
-power = np.maximum(power, 0.0)
-
-period = 1.0 / frequency
-
-plt.figure(figsize=(10, 6))
-plt.plot(period, power, color="black")
-plt.title("Lomb-Scargle Periodogram with yearly series")
-plt.xlabel("Period (years)")
-plt.ylabel("Power")
-plt.xlim(min_period, max_period)
-plt.grid(True, linestyle="--", alpha=0.4)
-plt.axvline(11.4, color="red", linestyle="--", label="~11-year", alpha=0.8)
-plt.xticks([6, 8, 10, 20])
-plt.legend(frameon=False)
-plt.tight_layout()
-plt.show()
-
-
-## as event-series
-t = test_korea["Year"].astype(int).values
-y = test_korea["Magnitude"].astype(float).values
-
-y = y - np.mean(y)
-
-min_period = 6.0
-max_period = 20.0
-frequency = np.linspace(1 / max_period, 1 / min_period, 60000)
-period = 1.0 / frequency
-
-ls = LombScargle(t, y, normalization="psd")
-power = ls.power(frequency)
-
-plt.figure(figsize=(10, 6))
-plt.plot(period, power, color="black")
-plt.title("Lomb-Scargle Periodogram with event series")
-plt.xlabel("Period (years)")
-plt.ylabel("Power")
-plt.xlim(min_period, max_period)
-plt.grid(True, linestyle="--")
-plt.axvline(13.2, color="red", linestyle="--", label="~13-year")
-
-plt.xticks([6, 8, 10, 20])
 plt.legend(frameon=False)
 plt.tight_layout()
 plt.show()
 
 
 # Lomb–Scargle with Monte Carlo significance levels
-year = test_korea["Year"].astype(int).values
-magni = test_korea["Magnitude"].astype(float).values
+year = korean["Year"].astype(int).values
 
 year_min = int(year.min())
 year_max = int(year.max())
 years = np.arange(year_min, year_max + 1)
+yearly_counts = pd.Series(1, index=year).groupby(level=0).sum()
 
-yearly_amp = pd.Series(magni, index=year).groupby(level=0).sum()
 amp = np.array(
-    [float(yearly_amp.loc[y]) if y in yearly_amp.index else 0.0 for y in years],
+    [float(yearly_counts.loc[y]) if y in yearly_counts.index else 0.0 for y in years],
     dtype=float,
 )
-
-w = 40
-baseline = (
-    pd.Series(amp).rolling(window=w, center=True, min_periods=1).mean().to_numpy()
-)
-amp_hp = amp - baseline
-amp_hp = amp_hp - amp_hp.mean()
+amp = amp - amp.mean()
 
 min_period = 6.0
 max_period = 110.0
 nf = 60000
+
 frequency = np.linspace(1.0 / max_period, 1.0 / min_period, nf)
 period = 1.0 / frequency
 
-ls_obs = LombScargle(years, amp_hp, normalization="psd")
+ls_obs = LombScargle(years, amp, normalization="psd")
 power_obs = np.maximum(ls_obs.power(frequency), 0.0)
-
 
 n_mc = 10000
 rng = np.random.default_rng(42)
-power_mc = np.zeros((n_mc, nf), dtype=float)
+
+power_mc = np.zeros((n_mc, nf))
 
 for i in range(n_mc):
     year_rand = rng.integers(year_min, year_max + 1, size=len(year))
-    yearly_amp_rand = pd.Series(magni, index=year_rand).groupby(level=0).sum()
+
+    yearly_rand = pd.Series(1, index=year_rand).groupby(level=0).sum()
+
     amp_rand = np.array(
-        [
-            float(yearly_amp_rand.loc[y]) if y in yearly_amp_rand.index else 0.0
-            for y in years
-        ],
+        [float(yearly_rand.loc[y]) if y in yearly_rand.index else 0.0 for y in years],
         dtype=float,
     )
 
-    baseline_rand = (
-        pd.Series(amp_rand)
-        .rolling(window=w, center=True, min_periods=1)
-        .mean()
-        .to_numpy()
-    )
-    amp_hp_rand = amp_rand - baseline_rand
-    amp_hp_rand = amp_hp_rand - amp_hp_rand.mean()
+    amp_rand = amp_rand - amp_rand.mean()
 
-    ls_rand = LombScargle(years, amp_hp_rand, normalization="psd")
+    ls_rand = LombScargle(years, amp_rand, normalization="psd")
+
     power_mc[i] = np.maximum(ls_rand.power(frequency), 0.0)
 
 sig_014 = np.percentile(power_mc, 99.86, axis=0)
 sig_030 = np.percentile(power_mc, 99.70, axis=0)
+plt.figure(figsize=(10,6))
 
-
-plt.figure(figsize=(10, 6))
 plt.plot(period, power_obs, color="black", label="Observed")
-plt.plot(
-    period, sig_014, color="black", linestyle=":", linewidth=1.2, label="Upper 0.14%"
-)
-plt.plot(
-    period, sig_030, color="black", linestyle="--", linewidth=1.2, label="Upper 0.30%"
-)
+plt.plot(period, sig_014, "k:", linewidth=1.2, label="Upper 0.14%")
+plt.plot(period, sig_030, "k--", linewidth=1.2, label="Upper 0.30%")
 plt.xlabel("Period (years)")
 plt.ylabel("Power")
 plt.xlim(min_period, max_period)
 plt.grid(True, linestyle="--", alpha=0.4)
-plt.axvline(11.4, color="red", linestyle="--", label="~11-year", alpha=0.8)
-plt.xticks([6, 8, 10, 20, 40, 60, 80, 100])
+plt.axvline(11.0, color="red", linestyle="--", label="~11-year")
+plt.xticks([6,8,10,20,40,60,80,100])
 plt.legend(frameon=False)
 plt.tight_layout()
 plt.show()
+
+
