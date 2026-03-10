@@ -273,7 +273,81 @@ anim = FuncAnimation(
     blit=False,
 )
 
-anim.save("animation.gif", writer=PillowWriter(fps=15))
+anim.save("animation.gif", writer=PillowWriter(fps=10))
+plt.show()
+
+
+## For showcase
+fig_seq, (ax_hist_seq, ax_P_seq) = plt.subplots(
+    2, 1, figsize=(12, 8), constrained_layout=True
+)
+
+def init_seq():
+    ax_hist_seq.clear()
+    ax_P_seq.clear()
+    return []
+
+def update_seq(frame_idx):
+
+    j = frame_idx + 1
+    prefix = t_events[:j]
+
+    periods, logL_P, P_hat = scan_period(
+        prefix,
+        beta0_true,
+        beta1_true,
+        phi_true,
+        T,
+        P_min=P_grid_min,
+        P_max=P_grid_max,
+        n_P=nP,
+        ll_grid=2500,
+    )
+
+    # Event histogram
+    ax_hist_seq.clear()
+    ax_hist_seq.hist(prefix, bins=bin_edges, color="black", alpha=0.7)
+
+    ax_hist_seq.set_xlim(0.0, T)
+    ax_hist_seq.set_ylim(0, hist_ymax)
+
+    ax_hist_seq.set_title(f"Number of events: {j}", fontsize=20) 
+    ax_hist_seq.set_xlabel("Event time (years)", fontsize=16)
+    ax_hist_seq.set_ylabel("Count", fontsize=16)
+
+    ax_hist_seq.tick_params(axis='both', labelsize=14)
+
+    # Period recovery
+    ax_P_seq.clear()
+
+    ax_P_seq.plot(periods, logL_P, color="black", linewidth=2.5)
+
+    ax_P_seq.axvline(P_true, linestyle="--", color="red", label="True period")
+    ax_P_seq.axvline(P_hat, linestyle=":", color="blue", label=f"Estimated period = {P_hat:.2f}")
+
+    ax_P_seq.set_xlim(P_grid_min, P_grid_max)
+
+    ax_P_seq.set_title("Period recovery", fontsize=20)
+    ax_P_seq.set_xlabel("Period (years)", fontsize=16)
+    ax_P_seq.set_ylabel("Log-likelihood", fontsize=16)
+
+    ax_P_seq.tick_params(axis='both', labelsize=14)
+
+    ax_P_seq.legend(loc = "upper right", fontsize=14)
+
+    return []
+
+anim_seq = FuncAnimation(
+    fig_seq,
+    update_seq,
+    frames=len(t_events),
+    init_func=init_seq,
+    interval=80,
+    blit=False,
+)
+
+anim_seq.save("animation_sequential.gif", writer=PillowWriter(fps=10))
+
 plt.show()
 
 #! What's the minimum number of events needed to get a good estimate of the period?
@@ -443,6 +517,84 @@ anim = FuncAnimation(
 anim.save("random_animation.gif", writer=PillowWriter(fps=15))
 plt.show()
 
+# For showcase - random
+seed = 2200
+rng = np.random.default_rng(seed)
+perm = rng.permutation(len(t_events))
+
+fig_rand, (ax_hist_rand, ax_P_rand) = plt.subplots(
+    2, 1, figsize=(12, 8), constrained_layout=True
+)
+
+def init_rand():
+    ax_hist_rand.clear()
+    ax_P_rand.clear()
+    return []
+
+def update_rand(frame_idx):
+
+    j = frame_idx + 1
+
+    subset = t_events[perm[:j]]
+    subset_sorted = np.sort(subset)
+
+    periods, logL_P, P_hat = scan_period(
+        subset_sorted,
+        beta0_true,
+        beta1_true,
+        phi_true,
+        T,
+        P_min=P_grid_min,
+        P_max=P_grid_max,
+        n_P=nP,
+        ll_grid=2500,
+    )
+
+    # Event histogram
+    ax_hist_rand.clear()
+    ax_hist_rand.hist(subset_sorted, bins=bin_edges, color="black", alpha=0.7)
+
+    ax_hist_rand.set_xlim(0.0, T)
+    ax_hist_rand.set_ylim(0, hist_ymax)
+
+    ax_hist_rand.set_title(f"Number of events: {j}", fontsize=20)
+    ax_hist_rand.set_xlabel("Event time (years)", fontsize=16)
+    ax_hist_rand.set_ylabel("Count", fontsize=16)
+
+    ax_hist_rand.tick_params(axis='both', labelsize=14)
+
+    # Period recovery
+    ax_P_rand.clear()
+
+    ax_P_rand.plot(periods, logL_P, color="black", linewidth=2.5)
+
+    ax_P_rand.axvline(P_true, linestyle="--", color="red", label="True period")
+    ax_P_rand.axvline(P_hat, linestyle=":", color="blue", label=f"Estimated period= {P_hat:.2f}")
+
+    ax_P_rand.set_xlim(P_grid_min, P_grid_max)
+
+    ax_P_rand.set_title("Period recovery", fontsize=20)
+    ax_P_rand.set_xlabel("Period (years)", fontsize=16)
+    ax_P_rand.set_ylabel("Log-likelihood", fontsize=16)
+
+    ax_P_rand.tick_params(axis='both', labelsize=14)
+
+    ax_P_rand.legend(loc = "upper right", fontsize=14)
+
+    return []
+
+anim_rand = FuncAnimation(
+    fig_rand,
+    update_rand,
+    frames=len(t_events),
+    init_func=init_rand,
+    interval=80,
+    blit=False,
+)
+
+anim_rand.save("animation_random.gif", writer=PillowWriter(fps=10))
+
+plt.show()
 
 # Random, get minimum events
 seed = 2200
@@ -1346,13 +1498,14 @@ labels = [r"$\beta_0$", r"$\beta_1$", r"$P$", r"$\phi$"]
 
 # Trace plots for dominant P cluster
 fig, axes = plt.subplots(4, 1, figsize=(10, 8), sharex=True, constrained_layout=True)
-axes[0].plot(beta0_chain, alpha=0.2, color="blue"); axes[0].set_ylabel(labels[0], fontsize=12)
-axes[1].plot(beta1_chain, alpha=0.2, color="blue"); axes[1].set_ylabel(labels[1], fontsize=12)
+axes[0].plot(beta0_chain, alpha=0.2, color="blue"); axes[0].set_ylabel(labels[0], fontsize=16)
+axes[1].plot(beta1_chain, alpha=0.2, color="blue"); axes[1].set_ylabel(labels[1], fontsize=16)
 axes[2].plot(P_chain, alpha=0.2, color="blue")
 axes[2].axhline(P_mode, ls="--", color="black", label="P_mode"); axes[2].legend(frameon=False)
-axes[2].set_ylabel(labels[2], fontsize=12)
-axes[3].plot(phi_chain, alpha=0.2, color="blue"); axes[3].set_ylabel(labels[3], fontsize=12)
-axes[-1].set_xlabel("Step", fontsize=12)
+axes[2].set_ylabel(labels[2], fontsize=16)
+axes[3].plot(phi_chain, alpha=0.2, color="blue"); axes[3].set_ylabel(labels[3], fontsize=16)
+axes[-1].set_xlabel("Step", fontsize=16)
+axes[0].set_title("Trace plots", fontsize=20)
 plt.show()
 
 # Corner plot for dominant P cluster
@@ -1363,8 +1516,9 @@ fig = corner.corner(
     color="blue",
     show_titles=True,
     title_fmt=".3f",
-    title_kwargs={"fontsize": 12},
+    title_kwargs={"fontsize": 16},
 )
+fig.suptitle("Corner plot", fontsize=20)
 plt.show()
 
 # Posterior predictive checks for dominant P cluster
