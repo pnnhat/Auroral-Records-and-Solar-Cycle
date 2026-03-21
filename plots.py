@@ -46,26 +46,29 @@ year_min = int(year.min())
 year_max = int(year.max())
 years = np.arange(year_min, year_max + 1)
 yearly_counts = pd.Series(1, index=year).groupby(level=0).sum()
-counts = np.array([float(yearly_counts.loc[y]) if y in yearly_counts.index else 0.0
-                   for y in years], dtype=float)
+
+counts = np.array(
+    [float(yearly_counts.loc[y]) if y in yearly_counts.index else 0.0
+     for y in years],
+    dtype=float
+)
 counts = counts - counts.mean()
 min_period = 6.0
-max_period = 110.0
+max_period = 50.0
 nf = 60000
 frequency = np.linspace(1.0 / max_period, 1.0 / min_period, nf)
 period = 1.0 / frequency
-
 ls = LombScargle(years, counts, normalization="psd")
 power = np.maximum(ls.power(frequency), 0.0)
-
 plt.figure(figsize=(10, 6))
 plt.plot(period, power, color="black")
+
 plt.xlabel("Period (years)")
 plt.ylabel("Power")
 plt.xlim(min_period, max_period)
 plt.grid(True, linestyle="--", alpha=0.4)
-plt.axvline(11.0, color="red", linestyle="--", alpha=0.8, label="~11-year")
-plt.xticks([6, 8, 10, 20, 40, 60, 80, 100])
+plt.axvline(11.0, color="red", linestyle="--", label="~11-year")
+plt.xticks([6, 8, 10, 20, 40, 50])
 plt.legend(frameon=False)
 plt.tight_layout()
 plt.show()
