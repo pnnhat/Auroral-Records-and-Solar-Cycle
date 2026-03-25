@@ -277,7 +277,6 @@ anim.save("animation.gif", writer=PillowWriter(fps=10))
 plt.show()
 
 
-## For showcase
 fig_seq, (ax_hist_seq, ax_P_seq) = plt.subplots(
     2, 1, figsize=(12, 8), constrained_layout=True
 )
