@@ -3,7 +3,7 @@ from scipy.interpolate import interp1d
 from scipy.integrate import trapezoid
 import emcee
 
-
+from scipy.special import expit
 def beta0(beta1, omega, phi, T, N_target, n_grid=20000):
     t_grid = np.linspace(0.0, T, n_grid)
     base = np.exp(beta1 * np.sin(omega * t_grid + phi))
@@ -307,164 +307,75 @@ def run_emcee_sampler(p0, event_times, T, P_grid_min=7.0, P_grid_max=16.0, ll_gr
 def q16_50_84(x):
     return np.percentile(np.asarray(x), [16, 50, 84])
 
+def q16_50_84(x):
+    return np.percentile(np.asarray(x), [16, 50, 84])
 
-# -----------------------------
-# Semiparametric basis functions
-# -----------------------------
-def make_rbf_basis(t, T, n_knots=8, width_scale=1.25):
-    """
-    Low-rank smooth basis on [0, T] using Gaussian RBFs.
-    Returns a design matrix of shape (len(t), n_knots).
 
-    We center each column so the spline part has mean ~ 0 over the grid,
-    which helps identifiability with beta0.
-    """
-    t = np.asarray(t, dtype=float)
-
-    centers = np.linspace(0.0, T, n_knots)
-    if n_knots > 1:
-        spacing = centers[1] - centers[0]
+def amplitude_phase_from_ab(a, b):
+    A = np.sqrt(a**2 + b**2)
+    phi = np.arctan2(b, a)
+    if np.ndim(phi) == 0:
+        if phi < 0:
+            phi += 2.0 * np.pi
     else:
-        spacing = T if T > 0 else 1.0
-
-    width = width_scale * spacing
-    B = np.exp(-0.5 * ((t[:, None] - centers[None, :]) / width) ** 2)
-
-    # center columns for identifiability with beta0
-    B = B - B.mean(axis=0, keepdims=True)
-    return B, centers, width
+        phi = np.where(phi < 0, phi + 2.0 * np.pi, phi)
+    return A, phi
 
 
-def phi_from_raw(raw_phi):
+def log_likelihood_ab(theta, event_times, T, ll_grid=4000):
     """
-    Map unconstrained real number -> (0, 2*pi)
+    theta = [beta0, a, b, logP]
+    log lambda(t) = beta0 + a sin(omega t) + b cos(omega t)
     """
-    return 2.0 * np.pi * expit(raw_phi)
-
-
-def semiparam_log_rate(t, beta0, beta1, omega, raw_phi, gamma, basis_info):
-    """
-    log lambda(t) = beta0 + beta1*sin(omega t + phi) + B(t) @ gamma
-    """
-    B_eval, _, _ = basis_info
-    phi = phi_from_raw(raw_phi)
-    return beta0 + beta1 * np.sin(omega * t + phi) + B_eval @ gamma
-
-
-def semiparam_lambda(t, beta0, beta1, omega, raw_phi, gamma, basis_info):
-    return np.exp(semiparam_log_rate(t, beta0, beta1, omega, raw_phi, gamma, basis_info))
-
-
-def build_semiparam_basis(T, n_knots=8, grid_size=4000, width_scale=1.25):
-    """
-    Build basis once on a dense integration grid and return an evaluator.
-    """
-    t_grid = np.linspace(0.0, T, grid_size)
-    B_grid, centers, width = make_rbf_basis(t_grid, T, n_knots=n_knots, width_scale=width_scale)
-
-    def eval_basis(t):
-        t = np.asarray(t, dtype=float)
-        B = np.exp(-0.5 * ((t[:, None] - centers[None, :]) / width) ** 2)
-        B = B - B_grid.mean(axis=0, keepdims=True)
-        return B
-
-    return t_grid, B_grid, centers, width, eval_basis
-
-
-def log_likelihood_semiparametric(theta, event_times, T, basis_bundle):
-    """
-    theta = [beta0, beta1, logP, raw_phi, gamma_1, ..., gamma_K]
-    """
-    beta0 = theta[0]
-    beta1 = theta[1]
-    logP  = theta[2]
-    raw_phi = theta[3]
-    gamma = theta[4:]
-
+    beta0, a, b, logP = theta
     P = np.exp(logP)
     omega = 2.0 * np.pi / P
 
-    t_grid, B_grid, centers, width, eval_basis = basis_bundle
+    # event contribution
+    if len(event_times) > 0:
+        log_lam_evt = beta0 + a * np.sin(omega * event_times) + b * np.cos(omega * event_times)
+        evt_term = np.sum(log_lam_evt)
+    else:
+        evt_term = 0.0
 
-    if len(event_times) == 0:
-        log_lam_grid = beta0 + beta1 * np.sin(omega * t_grid + phi_from_raw(raw_phi)) + B_grid @ gamma
-        lam_grid = np.exp(log_lam_grid)
-        return -trapezoid(lam_grid, t_grid)
-
-    B_evt = eval_basis(event_times)
-    phi = phi_from_raw(raw_phi)
-
-    log_lam_evt = beta0 + beta1 * np.sin(omega * event_times + phi) + B_evt @ gamma
-    term_events = np.sum(log_lam_evt)
-
-    log_lam_grid = beta0 + beta1 * np.sin(omega * t_grid + phi) + B_grid @ gamma
+    # integral contribution
+    t_grid = np.linspace(0.0, T, ll_grid)
+    log_lam_grid = beta0 + a * np.sin(omega * t_grid) + b * np.cos(omega * t_grid)
     lam_grid = np.exp(log_lam_grid)
     integral = trapezoid(lam_grid, t_grid)
 
-    return term_events - integral
+    return evt_term - integral
 
 
-def log_prior_semiparametric(
-    theta,
-    P_min,
-    P_max,
-    sigma_beta0=5.0,
-    sigma_beta1=1.0,
-    sigma_gamma=0.35
-):
-    """
-    Weakly informative priors + shrinkage on spline coefficients gamma.
-    Shrinkage is what keeps the semiparametric part smooth-ish / controlled.
-    """
-    beta0 = theta[0]
-    beta1 = theta[1]
-    logP = theta[2]
-    raw_phi = theta[3]
-    gamma = theta[4:]
-
+def log_prior_ab(theta, P_min=7.0, P_max=16.0,
+                 sigma_beta0=5.0, sigma_a=1.0, sigma_b=1.0):
+    beta0, a, b, logP = theta
     P = np.exp(logP)
 
     if not (P_min < P < P_max):
         return -np.inf
 
-    if abs(beta1) > 3.0:
-        return -np.inf
-
-    # weak Gaussian priors
     lp = 0.0
     lp += -0.5 * (beta0 / sigma_beta0) ** 2
-    lp += -0.5 * (beta1 / sigma_beta1) ** 2
-
-    # raw_phi kept unconstrained; logistic map handles support
-    lp += -0.5 * (raw_phi / 3.0) ** 2
-
-    # ridge prior on spline coefficients
-    lp += -0.5 * np.sum((gamma / sigma_gamma) ** 2)
-
+    lp += -0.5 * (a / sigma_a) ** 2
+    lp += -0.5 * (b / sigma_b) ** 2
     return lp
 
 
-def log_probability_semiparametric(
-    theta,
-    event_times,
-    T,
-    basis_bundle,
-    P_min=7.0,
-    P_max=16.0,
-    sigma_beta0=5.0,
-    sigma_beta1=1.0,
-    sigma_gamma=0.35,
-):
-    lp = log_prior_semiparametric(
+def log_probability_ab(theta, event_times, T,
+                       P_min=7.0, P_max=16.0,
+                       sigma_beta0=5.0, sigma_a=1.0, sigma_b=1.0,
+                       ll_grid=4000):
+    lp = log_prior_ab(
         theta,
         P_min=P_min,
         P_max=P_max,
         sigma_beta0=sigma_beta0,
-        sigma_beta1=sigma_beta1,
-        sigma_gamma=sigma_gamma,
+        sigma_a=sigma_a,
+        sigma_b=sigma_b,
     )
     if not np.isfinite(lp):
         return -np.inf
 
-    ll = log_likelihood_semiparametric(theta, event_times, T, basis_bundle)
+    ll = log_likelihood_ab(theta, event_times, T, ll_grid=ll_grid)
     return lp + ll

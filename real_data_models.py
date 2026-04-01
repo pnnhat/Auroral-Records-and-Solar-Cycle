@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import corner
 from astropy.timeseries import LombScargle
-
+from scipy.special import expit
 from helpers import * 
 
 
