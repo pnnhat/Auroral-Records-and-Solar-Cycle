@@ -4,7 +4,16 @@ import pandas as pd
 import corner
 from astropy.timeseries import LombScargle
 from scipy.special import expit
-from helpers import * 
+from helpers import *
+from diagnostics import (
+    profile_logL_over_P,
+    windowed_period_scan,
+    plot_windowed_scan,
+    run_sbc,
+    plot_sbc,
+    plot_ppc_epoch,
+    plot_profile_comparison,
+)
 
 
 P_grid_min, P_grid_max, nP = 7.0, 16.0, 900
@@ -74,9 +83,10 @@ p0 = theta_center + 1e-2 * rng.standard_normal(size=(nwalkers, ndim))
 logP_min, logP_max = np.log(P_grid_min), np.log(P_grid_max)
 p0[:, 2] = np.clip(p0[:, 2], logP_min + 1e-6, logP_max - 1e-6)
 
-# wrap phi
+# wrap phi — BUG FIX: was np.log(np.pi - 1e-12), which clipped phi to (0, pi).
+# The prior allows phi up to 2*pi; the initialisation must match.
 logphi_min = np.log(1e-12)
-logphi_max = np.log(np.pi - 1e-12)
+logphi_max = np.log(2.0 * np.pi - 1e-12)
 p0[:, 3] = np.clip(p0[:, 3], logphi_min, logphi_max)
 
 sampler = emcee.EnsembleSampler(
@@ -510,4 +520,234 @@ plt.xlabel("Time (years since t0)")
 plt.ylabel("Rate")
 plt.legend(loc="best")
 plt.tight_layout()
+plt.show()
+
+# =============================================================================
+# DIAGNOSTICS SECTION
+# All blocks below are independent diagnostics.  Run them in any order.
+# They do NOT filter, modify, or discard any posterior samples.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# D1. Profile log-likelihood over P
+# -----------------------------------------------------------------------------
+# For each P on a fine grid, the log-likelihood is maximised over (beta0, a, b)
+# exactly (one L-BFGS-B run per P, because the likelihood is strictly concave
+# in these three parameters for any fixed omega).
+#
+# This is the correct profile likelihood.  scan_period() above is only a 1-D
+# slice at fixed (beta0_guess, beta1_guess, phi_guess) — its peaks depend on
+# the initialisation, not on the marginalised information about P.
+#
+# Expected result if multimodality is structural aliasing:
+#   Many near-equal narrow peaks spaced ~P^2/T ≈ 0.14 yr apart across [7,16].
+# Expected result if it is a coding or sampler artefact:
+#   A single dominant peak near 11 yr.
+
+P_grid_diag = np.linspace(P_grid_min, P_grid_max, 900)
+print("Running profile logL scan over P (may take ~1 min)…")
+profile_1h, profile_params_1h = profile_logL_over_P(
+    event_times, T, P_grid_diag, ll_grid=4000
+)
+
+fig_prof, ax_prof = plt.subplots(figsize=(10, 4))
+ax_prof.plot(P_grid_diag, profile_1h - profile_1h.max(), color="black", lw=1.5)
+ax_prof.axvline(11.0, ls="--", color="red", alpha=0.8, label="11 yr")
+ax_prof.set_xlabel("Period P (years)")
+ax_prof.set_ylabel("Profile logL")
+ax_prof.set_title("Profile log-likelihood of P")
+ax_prof.legend(frameon=False)
+ax_prof.set_xlim(P_grid_min, P_grid_max)
+plt.tight_layout()
+plt.show()
+
+P_profile_hat = float(P_grid_diag[np.argmax(profile_1h)])
+print(f"Profile MLE for P: {P_profile_hat:.4f} yr")
+
+# 1-harmonic vs 2-harmonic profile comparison (coarser grid, faster)
+P_grid_coarse = np.linspace(P_grid_min, P_grid_max, 300)
+print("Comparing 1-harmonic and 2-harmonic profile logL…")
+_, prof1, prof2 = plot_profile_comparison(
+    event_times, T, P_grid_coarse, ll_grid=3000
+)
+
+# -----------------------------------------------------------------------------
+# D2. Rolling-window period scan
+# -----------------------------------------------------------------------------
+# Slides a 100-year window over the record in 25-year steps.
+#
+# Interpretation:
+#   Stable P_hat across windows → stationary solar cycle, aliasing is structural.
+#   P_hat drifts or is erratic near grand solar minima (Maunder ~1645–1715,
+#   Spörer ~1460–1550) → nonstationarity; the stationary model is misspecified.
+
+print("Running windowed period scan (may take several minutes)…")
+window_results = windowed_period_scan(
+    event_times,
+    years_real,          # absolute calendar years defined near the top of this script
+    window_years=100,
+    step_years=25,
+    P_min=P_grid_min,
+    P_max=P_grid_max,
+    nP=200,
+    ll_grid=2000,
+)
+plot_windowed_scan(window_results)
+
+print(f"\n{'Window':>14}  {'N':>4}  {'P_hat':>6}")
+for r in window_results:
+    print(f"  {r['start']}–{r['end']}  {r['n_events']:>4}  {r['P_hat']:>6.3f}")
+
+# -----------------------------------------------------------------------------
+# D3. Simulation-based calibration
+# -----------------------------------------------------------------------------
+# Checks whether the profile estimator recovers the true period from simulated
+# data drawn from the prior.  n_sim=50 is a quick check; use >= 200 for a
+# reliable rank histogram.
+
+print("\nRunning SBC (n_sim=50)…")
+sbc_records = run_sbc(
+    n_sim=50,
+    T_val=T,
+    N_target=len(event_times),
+    P_range=(9.0, 13.0),
+    P_min=P_grid_min,
+    P_max=P_grid_max,
+    nP=300,
+    ll_grid=2000,
+    seed=42,
+)
+plot_sbc(sbc_records)
+print(f"Median |P_mle − P_true|: {np.median([r['abs_error_yr'] for r in sbc_records]):.3f} yr")
+
+# -----------------------------------------------------------------------------
+# D4. MCMC — amplitude-phase form  log λ(t) = β₀ + β₁ sin(ωt + φ)
+# -----------------------------------------------------------------------------
+# theta = [β₀, β₁, log P, log φ]   (log φ so φ stays positive; prior: φ ∈ (0, 2π))
+
+theta_center_ap = np.array(
+    [b0_hat, b1_hat, np.log(P_hat), np.log(phi_hat)], dtype=float
+)
+print("\nInit centre for amplitude-phase MCMC:", theta_center_ap)
+
+logphi_min = np.log(1e-12)
+logphi_max = np.log(2.0 * np.pi - 1e-12)
+
+ndim_ap   = 4
+nwalkers_ap = 64
+rng_ap = np.random.default_rng(2201)
+
+p0_ap = theta_center_ap + 1e-2 * rng_ap.standard_normal(size=(nwalkers_ap, ndim_ap))
+p0_ap[:, 2] = np.clip(p0_ap[:, 2], np.log(P_grid_min) + 1e-6, np.log(P_grid_max) - 1e-6)
+p0_ap[:, 3] = np.clip(p0_ap[:, 3], logphi_min + 1e-6, logphi_max - 1e-6)
+
+sampler_ap = emcee.EnsembleSampler(
+    nwalkers_ap,
+    ndim_ap,
+    log_probability,
+    args=(event_times, T),
+    kwargs={"P_min": P_grid_min, "P_max": P_grid_max, "ll_grid": 4000},
+)
+
+nburn_ap = 50000
+print(f"Running amplitude-phase MCMC: {nburn_ap} burn-in steps…")
+state_ap = sampler_ap.run_mcmc(p0_ap, nburn_ap, progress=True, rstate0=rng_ap)
+sampler_ap.reset()
+
+nsteps_ap = 30000
+print(f"Running amplitude-phase MCMC: {nsteps_ap} production steps…")
+sampler_ap.run_mcmc(state_ap, nsteps_ap, progress=True, rstate0=rng_ap)
+print("Mean acceptance fraction:", np.mean(sampler_ap.acceptance_fraction))
+
+thin_ap  = 10
+flat_ap  = sampler_ap.get_chain(discard=0, thin=thin_ap, flat=True)
+
+b0_ap_s  = flat_ap[:, 0]
+b1_ap_s  = flat_ap[:, 1]
+P_ap_s   = np.exp(flat_ap[:, 2])
+phi_ap_s = np.exp(flat_ap[:, 3])
+
+print("\nPosterior (16, 50, 84 percentiles) — amplitude-phase MCMC:")
+print("beta0  :", q16_50_84(b0_ap_s))
+print("beta1  :", q16_50_84(b1_ap_s))
+print("P (yr) :", q16_50_84(P_ap_s))
+print("phi    :", q16_50_84(phi_ap_s))
+
+# Trace plots
+chain_ap   = sampler_ap.get_chain()
+P_chain_ap = np.exp(chain_ap[:, :, 2])
+
+fig_tr, axes_tr = plt.subplots(4, 1, figsize=(10, 8), sharex=True, constrained_layout=True)
+for w in range(chain_ap.shape[1]):
+    axes_tr[0].plot(chain_ap[:, w, 0], alpha=0.15, color="steelblue")
+    axes_tr[1].plot(chain_ap[:, w, 1], alpha=0.15, color="steelblue")
+    axes_tr[2].plot(P_chain_ap[:, w],  alpha=0.15, color="steelblue")
+    axes_tr[3].plot(chain_ap[:, w, 2], alpha=0.15, color="steelblue")
+axes_tr[0].set_ylabel(r"$\beta_0$", fontsize=12)
+axes_tr[1].set_ylabel(r"$\beta_1$", fontsize=12)
+axes_tr[2].set_ylabel(r"$P$ (yr)", fontsize=12)
+axes_tr[2].axhline(P_profile_hat, ls="--", color="red", label="Profile MLE")
+axes_tr[2].legend(frameon=False)
+axes_tr[3].set_ylabel(r"$\log P$", fontsize=12)
+axes_tr[-1].set_xlabel("Step")
+fig_tr.suptitle(r"Trace plots — $\log\lambda(t)=\beta_0+\beta_1\sin(\omega t+\phi)$", fontsize=13)
+plt.show()
+
+# Corner plot
+samples_corner_ap = np.column_stack([b0_ap_s, b1_ap_s, P_ap_s, phi_ap_s])
+fig_corner_ap = corner.corner(
+    samples_corner_ap,
+    labels=[r"$\beta_0$", r"$\beta_1$", r"$P$", r"$\phi$"],
+    color="steelblue",
+    show_titles=True,
+    title_fmt=".3f",
+    title_kwargs={"fontsize": 11},
+)
+fig_corner_ap.suptitle(r"Corner plot — $\log\lambda(t)=\beta_0+\beta_1\sin(\omega t+\phi)$", fontsize=13)
+plt.show()
+
+# Full-record PPC
+t_grid_ppc2  = np.linspace(0.0, T, 2000)
+counts_ppc2, edges_ppc2 = np.histogram(event_times, bins=50, range=(0.0, T))
+bw_ppc2      = edges_ppc2[1] - edges_ppc2[0]
+centers_ppc2 = 0.5 * (edges_ppc2[:-1] + edges_ppc2[1:])
+
+fig_ppc2, ax_ppc2 = plt.subplots(figsize=(10, 5))
+ax_ppc2.step(centers_ppc2, counts_ppc2 / bw_ppc2, where="mid", lw=2,
+             label="Empirical rate", color="black")
+
+rng_ppc3 = np.random.default_rng(2201)
+idx_ppc3 = rng_ppc3.integers(0, len(b0_ap_s), size=300)
+for k in idx_ppc3:
+    om_  = 2.0 * np.pi / P_ap_s[k]
+    lam_ = np.exp(b0_ap_s[k] + b1_ap_s[k] * np.sin(om_ * t_grid_ppc2 + phi_ap_s[k]))
+    ax_ppc2.plot(t_grid_ppc2, lam_, alpha=0.1, lw=0.8, color="steelblue")
+
+ax_ppc2.set_xlabel("Time (years since t0)")
+ax_ppc2.set_ylabel("Rate (events / year)")
+ax_ppc2.legend(loc="best")
+ax_ppc2.set_title(r"$\log\lambda(t)=\beta_0+\beta_1\sin(\omega t+\phi)$")
+plt.tight_layout()
+plt.show()
+
+# -----------------------------------------------------------------------------
+# D5. PPC split by epoch
+# -----------------------------------------------------------------------------
+# Convert amplitude-phase samples → (β₀, a, b, logP) for plot_ppc_epoch.
+flat_ab_for_d5 = np.column_stack([
+    b0_ap_s,
+    b1_ap_s * np.cos(phi_ap_s),   # a = β₁ cos φ
+    b1_ap_s * np.sin(phi_ap_s),   # b = β₁ sin φ
+    flat_ap[:, 2],                 # log P
+])
+
+plot_ppc_epoch(
+    flat_ab_samples=flat_ab_for_d5,
+    event_times=event_times,
+    years_abs=years_real,
+    T=T,
+    epoch_edges=None,   # defaults to quartiles; override for grand minima
+    n_draws=200,
+    seed=0,
+)
 plt.show()

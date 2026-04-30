@@ -214,3 +214,33 @@ plt.tight_layout()
 plt.show()
 
 
+# =============================================================================
+# Periodogram-based period estimation (no rate model assumed)
+# =============================================================================
+
+from periodogram_methods import plot_periodogram_suite, subsampling_robustness
+
+korean_pp = pd.read_excel("data/KoreanAuroraRecords/Korean_Auroral_Full.xlsx")
+years_pp = korean_pp["Year"].astype(int).values
+t0_pp = int(years_pp.min())
+event_times_pp = (years_pp - t0_pp).astype(float)
+T_pp = float(event_times_pp.max())
+print(f"N={len(event_times_pp)}, T={T_pp:.1f} yr")
+
+fig_pp = plot_periodogram_suite(
+    event_times_pp, T_pp, P_min=7.0, P_max=16.0, nf=8000, nP_lls=800
+)
+plt.show()
+
+# Subsampling robustness check
+import importlib
+import periodogram_methods
+
+print(periodogram_methods.__file__)  # check this is the file you edited
+
+importlib.reload(periodogram_methods)
+
+fig_sub = periodogram_methods.subsampling_robustness(
+    event_times_pp, T_pp, keep_fractions=(0.9, 0.7, 0.5), n_reps=30
+)
+plt.show()
