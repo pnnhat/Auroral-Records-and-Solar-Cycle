@@ -1,1 +1,0 @@
-# Auroral-Records-and-Solar-Cycle

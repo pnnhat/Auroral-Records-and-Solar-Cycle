@@ -48,9 +48,8 @@ from scipy.optimize import minimize_scalar
 from astropy.timeseries import LombScargle
 
 
-# ---------------------------------------------------------------------------
 # 1.  Point-process periodogram
-# ---------------------------------------------------------------------------
+
 
 def point_process_periodogram(
     event_times: np.ndarray,
@@ -79,18 +78,16 @@ def point_process_periodogram(
     chunk = max(1, int(20_000_000 // N))
     I = np.empty(len(f))
     for start in range(0, len(f), chunk):
-        sl = f[start:start + chunk]
+        sl = f[start : start + chunk]
         phase = 2.0 * np.pi * np.outer(sl, t)  # (chunk, N)
         cs = np.sum(np.cos(phase), axis=1)
         ss = np.sum(np.sin(phase), axis=1)
-        I[start:start + chunk] = (cs ** 2 + ss ** 2) / N
+        I[start : start + chunk] = (cs**2 + ss**2) / N
     return I
 
 
+# 2.  Modified least-squares
 
-# ---------------------------------------------------------------------------
-# 2.  Modified least-squares (Quinn, Clarkson & McKilliam 2012)
-# ---------------------------------------------------------------------------
 
 def _ssmod_at_gamma(gtn: np.ndarray, n_nu: int) -> float:
     """
@@ -99,9 +96,9 @@ def _ssmod_at_gamma(gtn: np.ndarray, n_nu: int) -> float:
     gtn : pre-computed γ * t_n values (1-D array).
     """
     nu = np.linspace(0.0, 1.0, n_nu, endpoint=False)  # (n_nu,)
-    r = gtn[None, :] - nu[:, None]                      # (n_nu, N)
+    r = gtn[None, :] - nu[:, None]  # (n_nu, N)
     r -= np.round(r)
-    return float(np.sum(r ** 2, axis=1).min())
+    return float(np.sum(r**2, axis=1).min())
 
 
 def modified_lls(
@@ -154,6 +151,7 @@ def modified_lls(
 # 4.  Peak refinement
 # ---------------------------------------------------------------------------
 
+
 def refine_peak(
     event_times: np.ndarray,
     f_coarse: float,
@@ -181,7 +179,7 @@ def refine_peak(
         phase = 2.0 * np.pi * f * t
         cs = float(np.sum(np.cos(phase)))
         ss = float(np.sum(np.sin(phase)))
-        return -(cs ** 2 + ss ** 2) / N
+        return -(cs**2 + ss**2) / N
 
     res = minimize_scalar(
         neg_I,
@@ -195,6 +193,7 @@ def refine_peak(
 # 5.  Validation: simulation-based recovery test
 # ---------------------------------------------------------------------------
 
+
 def simulate_sparse_events(
     P_true: float,
     T: float,
@@ -207,6 +206,7 @@ def simulate_sparse_events(
     Uses the same cdf_inversion approach as helpers.py.
     """
     from scipy.interpolate import interp1d
+
     rng = np.random.default_rng(seed)
     omega = 2.0 * np.pi / P_true
     n_grid = 20000
@@ -214,16 +214,19 @@ def simulate_sparse_events(
     # Set beta0 so E[N] = N_target
     base = np.exp(beta1 * np.sin(omega * t_grid))
     from scipy.integrate import trapezoid
+
     beta0 = np.log(N_target / trapezoid(base, t_grid))
     lam = np.exp(beta0 + beta1 * np.sin(omega * t_grid))
     from numpy import cumsum, concatenate, diff
+
     incr = 0.5 * (lam[:-1] + lam[1:]) * diff(t_grid)
     Lambda = concatenate([[0.0], cumsum(incr)])
     Lambda_T = Lambda[-1]
     N = rng.poisson(Lambda_T)
     u = rng.random(N) * Lambda_T
-    inv_L = interp1d(Lambda, t_grid, kind="linear",
-                     bounds_error=False, fill_value=(0.0, T))
+    inv_L = interp1d(
+        Lambda, t_grid, kind="linear", bounds_error=False, fill_value=(0.0, T)
+    )
     t_ev = np.sort(inv_L(u))
     return t_ev
 
@@ -270,6 +273,7 @@ def recovery_test(
 # ---------------------------------------------------------------------------
 # 6.  Main comparison plot
 # ---------------------------------------------------------------------------
+
 
 def plot_periodogram_suite(
     event_times: np.ndarray,
@@ -320,8 +324,13 @@ def plot_periodogram_suite(
     # Left: Point-process periodogram
     ax_pp.plot(P_grid_f, I_pp, color="black", lw=0.7)
     ax_pp.axvline(11.0, ls="--", color="red", alpha=0.7, label="11 yr")
-    ax_pp.axvline(P_hat_pp_refined, ls=":", color="steelblue", lw=1.5,
-                  label=f"Peak  {P_hat_pp_refined:.3f} yr")
+    ax_pp.axvline(
+        P_hat_pp_refined,
+        ls=":",
+        color="steelblue",
+        lw=1.5,
+        label=f"Peak  {P_hat_pp_refined:.3f} yr",
+    )
     ax_pp.set_xlabel("Period P (years)")
     ax_pp.set_ylabel(r"$I(f) = \frac{1}{N}|\sum e^{2\pi i f t_n}|^2$")
     ax_pp.set_title("Point-process periodogram")
@@ -332,8 +341,9 @@ def plot_periodogram_suite(
     ssmod_norm = ssmod / ssmod.max()
     ax_lls.plot(P_lls, ssmod_norm, color="darkgreen", lw=0.7)
     ax_lls.axvline(11.0, ls="--", color="red", alpha=0.7, label="11 yr")
-    ax_lls.axvline(P_hat_lls, ls=":", color="steelblue", lw=1.5,
-                   label=f"Min  {P_hat_lls:.3f} yr")
+    ax_lls.axvline(
+        P_hat_lls, ls=":", color="steelblue", lw=1.5, label=f"Min  {P_hat_lls:.3f} yr"
+    )
     ax_lls.set_xlabel("Period P (years)")
     ax_lls.set_ylabel(r"$\mathrm{SSMOD}(\gamma)$  (normalised)")
     ax_lls.set_title("Modified least-squares periodogram")
@@ -344,68 +354,111 @@ def plot_periodogram_suite(
     return fig
 
 
+
+
+
 # ---------------------------------------------------------------------------
-# 7.  Subsampling robustness check
+# 7.  Sequential periodogram animation
 # ---------------------------------------------------------------------------
 
-def subsampling_robustness(
-    event_times: np.ndarray,
+
+def animate_periodogram(
+    event_times,
+    years_abs,
     T: float,
-    keep_fractions: tuple = (0.9, 0.7, 0.5),
-    n_reps: int = 30,
     P_min: float = 7.0,
     P_max: float = 16.0,
-    nf: int = 4000,
-    seed: int = 0,
-) -> plt.Figure:
+    nf: int = 3000,
+    step: int = 5,
+    fps: int = 12,
+    out_path: str = "plots/periodogram_animation.gif",
+) -> None:
     """
-    Assess robustness of the point-process periodogram by randomly dropping
-    a fraction of events and re-estimating the period.
+    Animate the point-process periodogram I(f) as events are added one
+    batch at a time (in chronological order).
 
-    Returns a figure showing the distribution of P_hat across replicates
-    for each keep fraction.
+    Each frame adds `step` events and shows:
+      Top panel    : event rug plot (absolute calendar years) up to current N.
+      Bottom panel : I(f) on a period axis, with the current dominant peak marked.
+
+    The animation reveals:
+      - How quickly the dominant peak near ~9.9 yr stabilises.
+      - The visible impact of the 1535-1563 CE burst epoch on the spectrum.
+      - The aliasing structure (multiple near-equal peaks) across the search range.
+
+    Parameters
+    ----------
+    event_times : 1-D array of relative event times (years since t0), sorted.
+    years_abs   : 1-D array of absolute calendar years, same order as event_times.
+    T           : total observation window (years).
+    P_min, P_max: period search range (years).
+    nf          : frequency grid resolution (lower = faster render).
+    step        : number of events added per frame.
+    fps         : frames per second in output GIF.
+    out_path    : save path for the GIF.
     """
-    rng = np.random.default_rng(seed)
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from matplotlib.animation import FuncAnimation, PillowWriter
+
+    t = np.asarray(event_times, dtype=float)
+    yrs = np.asarray(years_abs, dtype=float)
+    N_total = len(t)
+
     f_grid = np.linspace(1.0 / P_max, 1.0 / P_min, nf)
-    delta_f = 2.0 / T
-    results = {frac: [] for frac in keep_fractions}
+    P_grid = 1.0 / f_grid[::-1]  # ascending period axis
 
-    # Full-data estimate
-    I_full = point_process_periodogram(event_times, f_grid)
-    f_full = float(f_grid[np.argmax(I_full)])
-    f_full_ref, _ = refine_peak(event_times, f_full, half_width=delta_f)
-    P_full = 1.0 / f_full_ref
-    print(f"Full-data peak: {P_full:.4f} yr")
+    t0_abs = int(yrs.min())
+    bin_edges = np.linspace(t0_abs, t0_abs + T, 60)
 
-    for frac in keep_fractions:
-        n_keep = int(frac * len(event_times))
-        for _ in range(n_reps):
-            idx = rng.choice(len(event_times), size=n_keep, replace=False)
-            t_sub = event_times[idx]
-            I_sub = point_process_periodogram(t_sub, f_grid)
-            f_peak = float(f_grid[np.argmax(I_sub)])
-            f_ref, _ = refine_peak(t_sub, f_peak, half_width=delta_f)
-            results[frac].append(1.0 / f_ref)
-        med = np.median(results[frac])
-        std = np.std(results[frac])
-        print(f"  keep {int(100*frac)}%: P_hat = {med:.4f} ± {std:.4f} yr")
+    frame_ends = list(range(max(10, step), N_total, step)) + [N_total]
 
-    from scipy.stats import gaussian_kde
+    fig, (ax_hist, ax_per) = plt.subplots(
+        2, 1, figsize=(12, 8), constrained_layout=True
+    )
 
-    fig, ax = plt.subplots(figsize=(8, 4), constrained_layout=True)
-    ax.axvline(P_full, ls="--", color="black", lw=1.5, label=f"Full data  {P_full:.3f} yr")
-    ax.axvline(11.0, ls=":", color="red", alpha=0.7, label="11 yr")
-    colours = ["steelblue", "darkorange", "darkgreen"]
-    p_plot = np.linspace(P_min, P_max, 500)
-    for (frac, vals), col in zip(results.items(), colours):
-        vals_arr = np.array(vals)
-        if len(np.unique(vals_arr)) > 1:
-            kde = gaussian_kde(vals_arr)
-            ax.plot(p_plot, kde(p_plot), color=col, lw=2,
-                    label=f"keep {int(100*frac)}%  (n={n_reps})")
-            ax.fill_between(p_plot, kde(p_plot), alpha=0.2, color=col)
-    ax.set_xlabel("P̂  (years)")
-    ax.set_ylabel("Density")
-    ax.set_title("Subsampling robustness for Point-process periodogram")
-    ax.legend(frameon=False, fontsize=9)
-    return fig
+    def _update(n_events):
+        t_sub = t[:n_events]
+        y_sub = yrs[:n_events]
+
+        # Top: histogram of calendar years seen so far
+        ax_hist.clear()
+        ax_hist.hist(y_sub, bins=bin_edges, color="black", alpha=0.7)
+        ax_hist.axvspan(1535, 1563, color="orange", alpha=0.3)
+        ax_hist.text(1549, ax_hist.get_ylim()[1] * 0.85, "Burst 1535–1563 CE",
+                     fontsize=10, color="darkorange", ha="center")
+        ax_hist.set_xlim(t0_abs, t0_abs + T)
+        ax_hist.set_title(f"Number of events: {n_events}", fontsize=20)
+        ax_hist.set_xlabel("Calendar year (CE)", fontsize=16)
+        ax_hist.set_ylabel("Count", fontsize=16)
+        ax_hist.tick_params(axis="both", labelsize=14)
+
+        # Bottom: point-process periodogram
+        ax_per.clear()
+        I_raw = point_process_periodogram(t_sub, f_grid)[::-1]
+        P_hat = float(P_grid[np.argmax(I_raw)])
+        ax_per.plot(P_grid, I_raw, color="black", lw=2.5)
+        ax_per.axvline(11.0, ls="--", color="red", label="11 yr")
+        ax_per.axvline(P_hat, ls=":", color="blue",
+                       label=f"Estimated period = {P_hat:.2f} yr")
+        ax_per.set_xlim(P_min, P_max)
+        ax_per.set_title("Period Recovery (Point-Process Periodogram)", fontsize=20)
+        ax_per.set_xlabel("Period (years)", fontsize=16)
+        ax_per.set_ylabel("I(f)", fontsize=16)
+        ax_per.tick_params(axis="both", labelsize=14)
+        ax_per.legend(loc="upper right", fontsize=14, frameon=False)
+
+        return []
+
+    anim = FuncAnimation(
+        fig,
+        _update,
+        frames=frame_ends,
+        interval=1000 // fps,
+        blit=False,
+    )
+
+    print(f"Rendering {len(frame_ends)} frames -> {out_path}")
+    anim.save(out_path, writer=PillowWriter(fps=fps))
+    print("Saved.")
+    plt.close(fig)
