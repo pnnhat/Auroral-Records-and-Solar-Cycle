@@ -1,0 +1,74 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{booktabs}
+
+\title{Auroral Records and Solar Cycle}
+\author{Jayden Pham}
+
+\begin{document}
+
+\maketitle
+
+
+\section{Point-process Periodogram}
+
+$$I(f) = \frac{1}{N}\left|\sum_{n=1}^{N} e^{2\pi i f t_n}\right|^2
+= \frac{1}{N}\left[\left(\sum \cos 2\pi f t_n\right)^2 + \left(\sum \sin 2\pi f t_n\right)^2\right]$$
+
+This is the Bartlett (1963) spectral estimate for point processes. It determines the frequency $f$ at which the event times $t_n$ align coherently in phase, without requiring any assumption about the form of $\lambda(t)$.
+
+With $T = 870$ years and $P \approx 10$ years there are approximately 87 observable cycles, giving a period resolution of
+$$\Delta P \approx \frac{P^2}{T} \approx 0.11 \text{ years},$$
+so multiple near-equal peaks are expected across $[7, 16]$ years.
+
+\textbf{Result:} Dominant peak at $P = 9.937$ years.
+
+
+\section{Modified Least-Squares (Quinn, Clarkson \& McKilliam, 2012)}
+
+Each event is treated as a noisy observation of a periodic phase. The estimator minimises
+$$\text{SSMOD}(\gamma) = \min_{\nu} \sum_{n=1}^{N} \langle \gamma t_n - \nu \rangle^2$$
+where $\gamma = 1/P$ and $\langle x \rangle = x - \text{round}(x)$. At the correct $\gamma$, the phases $\{\gamma t_n\}$ cluster near a common offset $\nu$; at a wrong $\gamma$ they scatter. This is evaluated over a grid of 800 points in $\gamma \in [1/16,\, 1/7]$, with the inner minimisation over $\nu$ approximated by 400 equally spaced points on $[0, 1)$.
+
+The estimator is strongly consistent and has a convergence rate of $N^{3/2}$, which is faster than the $N^1$ rate of the standard periodogram. This means it benefits more from additional data points and is generally more precise at large $N$. It also makes no assumptions about the noise distribution or the spacing of observations, making it well suited to the irregular, sparse nature of the auroral record.
+
+\textbf{Result:} Minimum at $P = 9.919$ years. The close agreement with the periodogram estimate supports a genuine periodic signal.
+
+
+\section{Peak Refinement}
+
+The initial frequency grid has spacing
+$$\Delta f = \frac{f_{\max} - f_{\min}}{n_f},$$
+which corresponds to
+$$\Delta P \approx P^2 \Delta f \approx 0.03 \text{ years}.$$
+
+To improve accuracy, Brent's method is applied to $-I(f)$ within a window of $\pm 2/T$ around the dominant peak.
+
+\textbf{Result:} Refined estimate $P = 9.937$ years.
+
+
+\section{Sequential Animation of the Periodogram}
+
+The periodogram $I(f)$ is animated as events are added chronologically in batches of five. The top panel shows a histogram of events accumulated so far; the bottom panel shows the current $I(f)$ with a marker tracking the dominant peak $\hat{P}$.
+
+With fewer than around 100 events the spectrum is nearly flat and the peak is unstable. As more events accumulate the peak near $P \approx 9.9$ years stabilises and becomes dominant. The multiple near-equal peaks visible throughout reflect the resolution limit $\Delta P \approx 0.11$ years, not a failure of the estimator.
+
+
+\section*{References}
+
+\begin{enumerate}
+    \item Bartlett, M.S.\ (1963). The spectral analysis of point processes.
+    \textit{Journal of the Royal Statistical Society, Series~B}, 25(2), 264--296.
+
+    \item Fogel, E.\ and Gavish, M.\ (1988). Parameter estimation of
+    quasi-periodic sequences of unknown period.
+    \textit{IEEE Transactions on Acoustics, Speech, and Signal Processing},
+    36(10), 1534--1545.
+
+    \item Quinn, B.G., Clarkson, I.V.L., and McKilliam, R.G.\ (2012).
+    Estimating period from sparse, noisy timing data.
+    \textit{2012 IEEE Statistical Signal Processing Workshop (SSP)}, pp.~232--235.
+\end{enumerate}
+
+\end{document}

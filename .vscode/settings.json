@@ -1,3 +1,4 @@
 {
-    "interactiveWindow.executeWithShiftEnter": true
+    "interactiveWindow.executeWithShiftEnter": true,
+    "python-envs.defaultEnvManager": "ms-python.python:system"
 }
