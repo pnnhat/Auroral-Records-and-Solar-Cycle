@@ -1399,7 +1399,7 @@ for i in range(ndim):
 axes[-1].set_xlabel("Step", fontsize=12)
 plt.show()
 
-# Corner plot
+
 nsteps, nwalkers, ndim = chain.shape
 flat2 = chain.reshape(-1, ndim)
 
