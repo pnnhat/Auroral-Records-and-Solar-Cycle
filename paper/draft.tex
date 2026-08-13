@@ -1,7 +1,9 @@
 \documentclass{article}
+
 \usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{booktabs}
+\usepackage{cite}
 
 \title{Auroral Records and Solar Cycle}
 \author{Jayden Pham}
@@ -10,65 +12,122 @@
 
 \maketitle
 
-
 \section{Point-process Periodogram}
 
-$$I(f) = \frac{1}{N}\left|\sum_{n=1}^{N} e^{2\pi i f t_n}\right|^2
-= \frac{1}{N}\left[\left(\sum \cos 2\pi f t_n\right)^2 + \left(\sum \sin 2\pi f t_n\right)^2\right]$$
+The point-process periodogram provides a direct way of searching for periodicity in the auroral event times without first modelling the event rate. The main question it asks is:
 
-This is the Bartlett (1963) spectral estimate for point processes. It determines the frequency $f$ at which the event times $t_n$ align coherently in phase, without requiring any assumption about the form of $\lambda(t)$.
+\begin{quote}
+\textit{For which candidate period do the observed auroral event times show the strongest phase coherence?}
+\end{quote}
 
-With $T = 870$ years and $P \approx 10$ years there are approximately 87 observable cycles, giving a period resolution of
-$$\Delta P \approx \frac{P^2}{T} \approx 0.11 \text{ years},$$
-so multiple near-equal peaks are expected across $[7, 16]$ years.
+For a candidate frequency $f$, each event time $t_n$ can be represented as a point on a repeating cycle through the complex quantity
+$$e^{2\pi i f t_n}.$$
+If the candidate period is consistent with the timing structure in the data, many of these points will have similar phases and therefore reinforce one another. If the candidate period is inappropriate, the phases will be more widely distributed and tend to cancel.
 
-\textbf{Result:} Dominant peak at $P = 9.937$ years.
+The strength of this alignment is measured using the point-process periodogram
+$$I(f) = \frac{1}{N}\left|\sum_{n=1}^{N} e^{2\pi i f t_n}\right|^2,$$
+which can equivalently be written as
+$$I(f) = \frac{1}{N}\left[\left(\sum_{n=1}^{N}\cos(2\pi f t_n)\right)^2 + \left(\sum_{n=1}^{N}\sin(2\pi f t_n)\right)^2\right].$$
 
+The method is closely related to the spectral analysis of point processes developed by Bartlett \cite{bartlett1963}. Periodogram-based estimation for sparse and noisy timing observations was subsequently studied by Quinn, Clarkson, and McKilliam \cite{quinn2013}.
 
-\section{Modified Least-Squares (Quinn, Clarkson \& McKilliam, 2012)}
+The important advantage for the auroral data is that the calculation works directly with the event times. It does not require specifying a sinusoidal NHPP intensity function and then estimating the parameters of that intensity.
 
-Each event is treated as a noisy observation of a periodic phase. The estimator minimises
-$$\text{SSMOD}(\gamma) = \min_{\nu} \sum_{n=1}^{N} \langle \gamma t_n - \nu \rangle^2$$
-where $\gamma = 1/P$ and $\langle x \rangle = x - \text{round}(x)$. At the correct $\gamma$, the phases $\{\gamma t_n\}$ cluster near a common offset $\nu$; at a wrong $\gamma$ they scatter. This is evaluated over a grid of 800 points in $\gamma \in [1/16,\, 1/7]$, with the inner minimisation over $\nu$ approximated by 400 equally spaced points on $[0, 1)$.
+For each candidate period between 7 and 16 years, the periodogram measures the corresponding phase coherence. A larger value of $I(f)$ indicates stronger alignment, so the estimated period is obtained from the highest periodogram peak.
 
-The estimator is strongly consistent and has a convergence rate of $N^{3/2}$, which is faster than the $N^1$ rate of the standard periodogram. This means it benefits more from additional data points and is generally more precise at large $N$. It also makes no assumptions about the noise distribution or the spacing of observations, making it well suited to the irregular, sparse nature of the auroral record.
+For a record of approximately $T = 870$ years and a period near $P = 10$ years, the characteristic period resolution is approximately
+$$\Delta P \approx \frac{P^2}{T} \approx \frac{10^2}{870} \approx 0.11 \text{ years}.$$
+This provides useful context for interpreting the narrow and closely spaced peaks observed in the periodogram.
 
-\textbf{Result:} Minimum at $P = 9.919$ years. The close agreement with the periodogram estimate supports a genuine periodic signal.
+After identifying the dominant peak on the frequency grid, a local numerical optimisation was applied around that peak to reduce the discretisation error introduced by the grid.
 
+\textbf{Result:} The dominant point-process periodogram peak occurs at
+$$P = 9.9375 \text{ years}.$$
+This indicates that the strongest phase coherence in the Korean auroral event times occurs for a repeating cycle of approximately 9.94 years.
 
-\section{Peak Refinement}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{figures/periodogram.png}
+    \caption{Point-process periodogram $I(f)$ evaluated over $P \in [7,16]$ years. The dotted blue line marks the dominant peak at $P = 9.9375$ years; the dashed red line marks $P = 11$ years for reference.}
+    \label{fig:periodogram}
+\end{figure}
 
-The initial frequency grid has spacing
-$$\Delta f = \frac{f_{\max} - f_{\min}}{n_f},$$
-which corresponds to
-$$\Delta P \approx P^2 \Delta f \approx 0.03 \text{ years}.$$
+\section{Modified Least-Squares}
 
-To improve accuracy, Brent's method is applied to $-I(f)$ within a window of $\pm 2/T$ around the dominant peak.
+The modified least-squares method of Quinn, Clarkson, and McKilliam \cite{quinn2012} provides a second way of estimating the period directly from sparse event times. Rather than measuring spectral power, this method asks:
 
-\textbf{Result:} Refined estimate $P = 9.937$ years.
+\begin{quote}
+\textit{For which candidate period do the observed auroral events align most closely at a common position within a repeating cycle?}
+\end{quote}
 
+For a candidate period $P$, the corresponding frequency is defined as
+$$\gamma = \frac{1}{P}.$$
+Each event time $t_n$ is then converted into a phase within the candidate cycle. Because the starting phase of the underlying cycle is unknown, the method introduces a phase offset $\nu$ and finds the value that produces the best overall alignment.
+
+The phase misalignment is measured using
+$$\mathrm{SSMOD}(\gamma) = \min_{\nu}\sum_{n=1}^{N}\left\langle \gamma t_n - \nu\right\rangle^2,$$
+where
+$$\langle x\rangle = x - \operatorname{round}(x).$$
+The wrapping operation is necessary because phase is circular. An event occurring just before the end of one cycle should therefore be considered close to an event occurring just after the beginning of the next cycle.
+
+For each candidate period between 7 and 16 years, the method determines how tightly the event phases can be aligned. A smaller value of $\mathrm{SSMOD}$ corresponds to better phase alignment. Therefore, while the point-process periodogram searches for the highest peak, modified least-squares searches for the lowest value of its objective function.
+
+In the implementation, 800 candidate frequencies are evaluated, with 400 possible phase offsets considered for each frequency.
+
+\textbf{Result:} The minimum occurs at
+$$P = 9.919 \text{ years}.$$
+This means that a period of approximately 9.92 years produces the smallest overall phase misalignment among the observed auroral event times.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{figures/modified_lls.png}
+    \caption{Normalised $\mathrm{SSMOD}(\gamma)$ evaluated over $P \in [7,16]$ years. The dotted blue line marks the minimum at $P = 9.919$ years; the dashed red line marks $P = 11$ years for reference.}
+    \label{fig:lls}
+\end{figure}
+
+The two methods therefore answer closely related questions from different perspectives. The point-process periodogram asks where the event times have the strongest phase coherence, while modified least-squares asks where their phase misalignment is smallest.
+
+Their estimates are very close:
+$$P_{\mathrm{PP}} = 9.9375 \text{ years}, \qquad P_{\mathrm{LLS}} = 9.919 \text{ years}.$$
+The agreement between these two approaches provides independent support for a dominant timing periodicity near 9.9 years in the Korean auroral record.
 
 \section{Sequential Animation of the Periodogram}
 
-The periodogram $I(f)$ is animated as events are added chronologically in batches of five. The top panel shows a histogram of events accumulated so far; the bottom panel shows the current $I(f)$ with a marker tracking the dominant peak $\hat{P}$.
+To visualise how the period estimate evolves as the historical record accumulates, the point-process periodogram $I(f)$ is animated as events are added chronologically in batches of five.
 
-With fewer than around 100 events the spectrum is nearly flat and the peak is unstable. As more events accumulate the peak near $P \approx 9.9$ years stabilises and becomes dominant. The multiple near-equal peaks visible throughout reflect the resolution limit $\Delta P \approx 0.11$ years, not a failure of the estimator.
+Each frame of the animation shows two panels. The top panel displays a histogram of all auroral events recorded up to that point in time. The bottom panel displays the current periodogram $I(f)$ plotted against period $P \in [7, 16]$ years, with a marker tracking the current dominant peak $\hat{P}$.
 
+With fewer than approximately 100 events the spectrum is nearly flat and the peak is unstable. As more events accumulate the peak near $P \approx 9.9$ years stabilises and becomes dominant. The multiple near-equal peaks visible throughout reflect the resolution limit $\Delta P \approx 0.11$ years rather than any failure of the estimator.
 
-\section*{References}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{figures/periodogram_animation.gif}
+    \caption{Sequential animation of the point-process periodogram as auroral events are added chronologically. Top: event histogram. Bottom: $I(f)$ with the dominant peak tracked.}
+    \label{fig:animation}
+\end{figure}
 
-\begin{enumerate}
-    \item Bartlett, M.S.\ (1963). The spectral analysis of point processes.
-    \textit{Journal of the Royal Statistical Society, Series~B}, 25(2), 264--296.
+\begin{thebibliography}{9}
 
-    \item Fogel, E.\ and Gavish, M.\ (1988). Parameter estimation of
-    quasi-periodic sequences of unknown period.
-    \textit{IEEE Transactions on Acoustics, Speech, and Signal Processing},
-    36(10), 1534--1545.
+\bibitem{bartlett1963}
+M. S. Bartlett,
+``The Spectral Analysis of Point Processes,''
+\textit{Journal of the Royal Statistical Society: Series B (Methodological)},
+vol. 25, no. 2, pp. 264--296, 1963.
 
-    \item Quinn, B.G., Clarkson, I.V.L., and McKilliam, R.G.\ (2012).
-    Estimating period from sparse, noisy timing data.
-    \textit{2012 IEEE Statistical Signal Processing Workshop (SSP)}, pp.~232--235.
-\end{enumerate}
+\bibitem{quinn2012}
+B. G. Quinn, I. V. L. Clarkson, and R. G. McKilliam,
+``Estimating Period from Sparse, Noisy Timing Data,''
+in \textit{2012 IEEE Statistical Signal Processing Workshop (SSP)},
+pp. 232--235, 2012.
+doi: 10.1109/SSP.2012.6319851.
+
+\bibitem{quinn2013}
+B. G. Quinn, I. V. L. Clarkson, and R. McKilliam,
+``On the Periodogram Estimator of Period from Sparse, Noisy Timing Data,''
+\textit{IEEE Transactions on Signal Processing},
+vol. 61, no. 17, pp. 4260--4272, 2013.
+doi: 10.1109/TSP.2013.2265226.
+
+\end{thebibliography}
 
 \end{document}

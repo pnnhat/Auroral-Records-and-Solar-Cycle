@@ -6,7 +6,7 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.fft import rfft, rfftfreq
 from astropy.timeseries import LombScargle
 
-korean = pd.read_excel("data/auroral_records_optionA.xlsx")
+korean = pd.read_excel("data/KoreanAuroraRecords/Korean_Auroral_Full.xlsx")
 chinese = pd.read_excel("data/ChineseDynastyRecords/Chinese Aurora Records.xlsx")
 
 # Stacked Histogram
@@ -93,5 +93,41 @@ plt.axvline(22, color="green", linestyle="--", label="22-year")
 
 plt.xticks([6, 8, 10, 20, 30])
 plt.legend(frameon=False)
+plt.tight_layout()
+plt.show()
+
+
+## Histogram of Korean auroral records
+year = korean["Year"].astype(int).values
+
+year_min = int(year.min())
+year_max = int(year.max())
+years = np.arange(year_min, year_max + 1)
+
+yearly_counts = pd.Series(1, index=year).groupby(level=0).sum()
+counts = np.array(
+    [yearly_counts.get(y, 0) for y in years],
+    dtype=float
+)
+
+plt.figure(figsize=(12, 4))
+plt.bar(years, counts, width=1.0, color="gray", edgecolor="gray", alpha=0.8)
+
+smooth_counts = gaussian_filter1d(counts, sigma=2.0)
+plt.plot(years, smooth_counts, color="black", linewidth=2.2, zorder=10)
+
+plt.xlabel("Year")
+plt.ylabel("Number of Records")
+plt.xlim(year_min, year_max)
+plt.xticks([1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700])
+
+# labels
+plt.text(1010, 4.0, "Oort", fontsize=18)
+plt.text(1290, 3.5, "Wolf", fontsize=18)
+plt.text(1450, 5.5, "Sporer", fontsize=18)
+
+plt.axvspan(1645, 1715, color="gray", alpha=0.2)
+plt.text(1680, 10, "Maunder\nMinimum", fontsize=18, ha="center", va="center")
+
 plt.tight_layout()
 plt.show()
