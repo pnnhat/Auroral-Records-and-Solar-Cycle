@@ -1,9 +1,15 @@
+## Shared library: NHPP model, sampler, likelihoods, and MCMC machinery
+# Pure functions only, no data loaded and nothing runs on import; every driver imports from here.
+# Contents: beta0 normalisation, lambda_func intensity, cdf_inversion sampler, log-likelihoods
+# (single/1-harm/2-harm), scan_* / beta0_grid profiling helpers, and the emcee prior/posterior/sampler.
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.integrate import trapezoid
 import emcee
 
 from scipy.special import expit
+
+
 def beta0(beta1, omega, phi, T, N_target, n_grid=20000):
     t_grid = np.linspace(0.0, T, n_grid)
     base = np.exp(beta1 * np.sin(omega * t_grid + phi))
@@ -59,11 +65,15 @@ def log_likelihood_params(beta0, beta1, omega, phi, event_times, T, n_grid=4000)
     return term_events - integral
 
 
-def scan_period(prefix, beta0, beta1, phi, T, P_min=7.0, P_max=16.0, n_P=900, ll_grid=2500):
+def scan_period(
+    prefix, beta0, beta1, phi, T, P_min=7.0, P_max=16.0, n_P=900, ll_grid=2500
+):
     periods = np.linspace(P_min, P_max, n_P)
     logLs = np.array(
         [
-            log_likelihood_params(beta0, beta1, 2 * np.pi / P, phi, prefix, T, n_grid=ll_grid)
+            log_likelihood_params(
+                beta0, beta1, 2 * np.pi / P, phi, prefix, T, n_grid=ll_grid
+            )
             for P in periods
         ],
         dtype=float,
@@ -149,7 +159,9 @@ def beta0_1harm(a1, b1, omega, T, N_target, n_grid=20000):
     return np.log(N_target / trapezoid(base, t))
 
 
-def log_likelihood_1harm(event_times, T, N_target, omega, a1_grid, b1_grid, ll_grid=4000):
+def log_likelihood_1harm(
+    event_times, T, N_target, omega, a1_grid, b1_grid, ll_grid=4000
+):
     if len(event_times) == 0:
         return -np.inf, (np.nan, np.nan, np.nan)
 
@@ -177,7 +189,9 @@ def log_likelihood_1harm(event_times, T, N_target, omega, a1_grid, b1_grid, ll_g
     return bestL, best
 
 
-def log_likelihood_2harm(event_times, T, N_target, omega, a1_grid, b1_grid, a2_grid, b2_grid, ll_grid=4000):
+def log_likelihood_2harm(
+    event_times, T, N_target, omega, a1_grid, b1_grid, a2_grid, b2_grid, ll_grid=4000
+):
     if len(event_times) == 0:
         return -np.inf, (np.nan, np.nan, np.nan, np.nan, np.nan)
 
@@ -279,7 +293,9 @@ def log_probability(theta, event_times, T, P_min=7.0, P_max=16.0, ll_grid=4000):
     omega_ = 2.0 * np.pi / P_
     phi_ = np.exp(logphi_)
 
-    ll = log_likelihood_params(beta0_, beta1_, omega_, phi_, event_times, T, n_grid=ll_grid)
+    ll = log_likelihood_params(
+        beta0_, beta1_, omega_, phi_, event_times, T, n_grid=ll_grid
+    )
     return lp + ll
 
 
@@ -287,7 +303,16 @@ def q16_50_84(x):
     return np.percentile(x, [16, 50, 84])
 
 
-def run_emcee_sampler(p0, event_times, T, P_grid_min=7.0, P_grid_max=16.0, ll_grid=4000, nburn=50000, nsteps=30000):
+def run_emcee_sampler(
+    p0,
+    event_times,
+    T,
+    P_grid_min=7.0,
+    P_grid_max=16.0,
+    ll_grid=4000,
+    nburn=50000,
+    nsteps=30000,
+):
     ndim = p0.shape[1]
     nwalkers = p0.shape[0]
     rng = np.random.default_rng(2200)
@@ -307,6 +332,7 @@ def run_emcee_sampler(p0, event_times, T, P_grid_min=7.0, P_grid_max=16.0, ll_gr
 def q16_50_84(x):
     return np.percentile(np.asarray(x), [16, 50, 84])
 
+
 def q16_50_84(x):
     return np.percentile(np.asarray(x), [16, 50, 84])
 
@@ -323,17 +349,16 @@ def amplitude_phase_from_ab(a, b):
 
 
 def log_likelihood_ab(theta, event_times, T, ll_grid=4000):
-    """
-    theta = [beta0, a, b, logP]
-    log lambda(t) = beta0 + a sin(omega t) + b cos(omega t)
-    """
+    # theta = [beta0, a, b, logP]; log lambda(t) = beta0 + a sin(omega t) + b cos(omega t)
     beta0, a, b, logP = theta
     P = np.exp(logP)
     omega = 2.0 * np.pi / P
 
     # event contribution
     if len(event_times) > 0:
-        log_lam_evt = beta0 + a * np.sin(omega * event_times) + b * np.cos(omega * event_times)
+        log_lam_evt = (
+            beta0 + a * np.sin(omega * event_times) + b * np.cos(omega * event_times)
+        )
         evt_term = np.sum(log_lam_evt)
     else:
         evt_term = 0.0
@@ -347,8 +372,9 @@ def log_likelihood_ab(theta, event_times, T, ll_grid=4000):
     return evt_term - integral
 
 
-def log_prior_ab(theta, P_min=7.0, P_max=16.0,
-                 sigma_beta0=5.0, sigma_a=1.0, sigma_b=1.0):
+def log_prior_ab(
+    theta, P_min=7.0, P_max=16.0, sigma_beta0=5.0, sigma_a=1.0, sigma_b=1.0
+):
     beta0, a, b, logP = theta
     P = np.exp(logP)
 
@@ -362,10 +388,17 @@ def log_prior_ab(theta, P_min=7.0, P_max=16.0,
     return lp
 
 
-def log_probability_ab(theta, event_times, T,
-                       P_min=7.0, P_max=16.0,
-                       sigma_beta0=5.0, sigma_a=1.0, sigma_b=1.0,
-                       ll_grid=4000):
+def log_probability_ab(
+    theta,
+    event_times,
+    T,
+    P_min=7.0,
+    P_max=16.0,
+    sigma_beta0=5.0,
+    sigma_a=1.0,
+    sigma_b=1.0,
+    ll_grid=4000,
+):
     lp = log_prior_ab(
         theta,
         P_min=P_min,
