@@ -1,4 +1,4 @@
-## Exploratory analysis, no model assumed (Part 1)
+## Exploratory analysis, no model assumed
 # Show the ~11-yr peak directly from the records: histograms, stem plot, Lomb-Scargle, Monte Carlo significance.
 import numpy as np
 import pandas as pd
@@ -8,7 +8,9 @@ from astropy.timeseries import LombScargle
 
 korean = pd.read_excel("data/KoreanAuroraRecords/Korean_Auroral_Full.xlsx")
 chinese = pd.read_excel("data/ChineseDynastyRecords/Chinese Aurora Records.xlsx")
-korean_grades = pd.read_excel("data/KoreanAuroraRecords/Korean_Aurora_Grades_918_1392.xlsx")
+korean_grades = pd.read_excel(
+    "data/KoreanAuroraRecords/Korean_Aurora_Grades_918_1392.xlsx"
+)
 
 ## Histogram of Korean auroral records
 # Annual counts as bars, Gaussian-smoothed trend on top, grand minima marked
@@ -57,8 +59,14 @@ ax.hist(
     label=["Korean Auroras", "Chinese Auroras"],
 )
 ax.axvspan(1645, 1715, color="lightgray", alpha=0.5)
-ax.text(1647, ax.get_ylim()[1] * 0.9, "Maunder Minimum\n(1645–1715)",
-        fontsize=12, ha="left", va="top")
+ax.text(
+    1647,
+    ax.get_ylim()[1] * 0.9,
+    "Maunder Minimum\n(1645–1715)",
+    fontsize=12,
+    ha="left",
+    va="top",
+)
 ax.set_xlabel("Year", fontsize=14)
 ax.set_ylabel("Aurora Records", fontsize=14)
 ax.legend(frameon=False)
@@ -112,6 +120,7 @@ power = np.maximum(ls.power(frequency), 0.0)
 
 plt.figure(figsize=(10, 6))
 plt.plot(period, power, color="black")
+plt.title("Lomb-Scargle Periodogram of Korean Auroral Records", fontsize=16)
 plt.xlabel("Period (years)")
 plt.ylabel("Power")
 plt.xlim(min_period, max_period)
@@ -137,7 +146,9 @@ amp = np.array(
     dtype=float,
 )
 w = 40
-baseline = pd.Series(amp).rolling(window=w, center=True, min_periods=1).mean().to_numpy()
+baseline = (
+    pd.Series(amp).rolling(window=w, center=True, min_periods=1).mean().to_numpy()
+)
 amp_hp = amp - baseline
 
 min_period = 6.0
@@ -151,6 +162,7 @@ power = np.maximum(ls.power(frequency), 0.0)
 
 plt.figure(figsize=(10, 6))
 plt.plot(period, power, color="black")
+plt.title("Lomb-Scargle Periodogram of Magnitude-Weighted Aurora Records")
 plt.xlabel("Period (years)")
 plt.ylabel("Power")
 plt.xlim(min_period, max_period)
@@ -205,6 +217,7 @@ plt.figure(figsize=(10, 6))
 plt.plot(period, power_obs, color="black", label="Observed")
 plt.plot(period, sig_014, "k:", linewidth=1.2, label="Upper 0.14%")
 plt.plot(period, sig_030, "k--", linewidth=1.2, label="Upper 0.30%")
+plt.title("Monte Carlo Significance for Count-Series Periodogram")
 plt.xlabel("Period (years)")
 plt.ylabel("Power")
 plt.xlim(min_period, max_period)
