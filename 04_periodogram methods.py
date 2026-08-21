@@ -18,6 +18,8 @@ from scipy.interpolate import interp1d
 from scipy.integrate import trapezoid
 from numpy import cumsum, concatenate, diff
 from matplotlib.animation import FuncAnimation, PillowWriter
+import matplotlib.patheffects as pe
+from matplotlib.colors import LogNorm
 
 ## Point-process periodogram
 
@@ -429,3 +431,165 @@ animate_periodogram(
     fps=9,
     out_path="plots/periodogram_animation.gif",
 )
+
+
+## Windowed Bartlett: compute both maps once
+# Sliding-window point-process periodogram; keep both the normalised and raw power per window.
+
+
+win = 50.0
+step = 5.0
+min_events = 8
+
+nP_map = 400
+periods_map = np.linspace(7.0, 16.0, nP_map)
+f_grid_map = 1.0 / periods_map
+
+starts = np.arange(int(years_pp.min()), int(years_pp.max()) - win + 1e-9, step)
+centres = starts + win / 2.0
+
+power_norm = np.full((nP_map, len(starts)), np.nan)  # period drift
+power_raw = np.full((nP_map, len(starts)), np.nan)  # density / strength drift
+peak_period = np.full(len(starts), np.nan)
+
+for j, s in enumerate(starts):
+    ev = years_pp[(years_pp >= s) & (years_pp < s + win)].astype(float)
+    if len(ev) < min_events:
+        continue
+    I = point_process_periodogram(ev, f_grid_map)
+    power_raw[:, j] = I
+    power_norm[:, j] = I / I.max()
+    peak_period[j] = periods_map[int(np.argmax(I))]
+
+outline = [pe.Stroke(linewidth=3.0, foreground="black"), pe.Normal()]
+
+
+## Figure 1: period drift
+fig1, ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
+fig1.patch.set_facecolor("white")
+
+m = ax.pcolormesh(
+    centres,
+    periods_map,
+    power_norm,
+    shading="gouraud",
+    cmap="viridis",
+    vmin=0.0,
+    vmax=1.0,
+)
+ax.plot(
+    centres,
+    peak_period,
+    color="white",
+    lw=1.6,
+    path_effects=outline,
+    label="Per-window peak",
+)
+ax.axhline(11.0, color="red", ls="--", lw=1.4, path_effects=outline, label="11-year")
+ax.set_title("Peak period over time", color="black")
+ax.set_xlabel("Window centre year", color="black")
+ax.set_ylabel("Period (years)", color="black")
+ax.set_ylim(7.0, 16.0)
+ax.tick_params(colors="black")
+leg = ax.legend(loc="upper right", framealpha=0.85, facecolor="white")
+for t in leg.get_texts():
+    t.set_color("black")
+cb = fig1.colorbar(m, ax=ax, label="Normalised power")
+cb.ax.yaxis.label.set_color("black")
+cb.ax.tick_params(colors="black")
+
+plt.show()
+
+
+## Figure 2: densitydrift
+fig2, ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
+fig2.patch.set_facecolor("white")
+
+vmax = np.nanmax(power_raw)
+m = ax.pcolormesh(
+    centres,
+    periods_map,
+    power_raw,
+    shading="gouraud",
+    cmap="viridis",
+    norm=LogNorm(vmin=max(1.0, vmax / 1e3), vmax=vmax),
+)
+ax.set_title("Signal strength over time", color="black")
+ax.set_xlabel("Window centre year", color="black")
+ax.set_ylabel("Period (years)", color="black")
+ax.set_ylim(7.0, 16.0)
+ax.tick_params(colors="black")
+cb = fig2.colorbar(m, ax=ax, label="Raw power")
+cb.ax.yaxis.label.set_color("black")
+cb.ax.tick_params(colors="black")
+
+plt.show()
+
+## Per-window significance mask for the peak-period map
+# Null = N random times uniform across the same window. A cell survives only if the
+# observed Bartlett power beats the per-period null threshold; everything else is blanked.
+n_mc = 200  # null draws per window (lower this if it's slow)
+sig_pct = 99.0  # keep cells above this percentile of the null, per period
+rng = np.random.default_rng(2200)
+
+power_sig = np.full((nP_map, len(starts)), np.nan)
+peak_sig = np.full(len(starts), np.nan)
+
+for j, s in enumerate(starts):
+    ev = years_pp[(years_pp >= s) & (years_pp < s + win)].astype(float)
+    N = len(ev)
+    if N < min_events:
+        continue
+    I_obs = point_process_periodogram(ev, f_grid_map)
+
+    # build the null for this window
+    null = np.empty((n_mc, nP_map))
+    for k in range(n_mc):
+        t_rand = rng.uniform(s, s + win, size=N)
+        null[k] = point_process_periodogram(t_rand, f_grid_map)
+    thresh = np.percentile(null, sig_pct, axis=0)  # per-period threshold
+
+    sig = I_obs > thresh
+    col = I_obs / I_obs.max()
+    col[~sig] = np.nan  # blank non-significant cells
+    power_sig[:, j] = col
+
+    # record a peak only if the window's own maximum beats its threshold
+    imax = int(np.argmax(I_obs))
+    if I_obs[imax] > thresh[imax]:
+        peak_sig[j] = periods_map[imax]
+
+
+## Figure: peak period over time, significant cells only
+fig, ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
+fig.patch.set_facecolor("white")
+
+cmap = plt.cm.viridis.copy()
+cmap.set_bad("0.85")  # grey for blanked / empty cells
+
+m = ax.pcolormesh(
+    centres,
+    periods_map,
+    np.ma.masked_invalid(power_sig),
+    shading="nearest",
+    cmap=cmap,
+    vmin=0.0,
+    vmax=1.0,
+)
+ax.plot(
+    centres, peak_sig, color="black", lw=1.5, marker=".", ms=3, label="Significant peak"
+)
+ax.axhline(11.0, color="red", ls="--", lw=1.4, label="11-year")
+ax.set_title(f"Peak period over time  (cells above {sig_pct:.0f}% null)", color="black")
+ax.set_xlabel("Window centre year", color="black")
+ax.set_ylabel("Period (years)", color="black")
+ax.set_ylim(7.0, 16.0)
+ax.tick_params(colors="black")
+leg = ax.legend(loc="upper right", framealpha=0.9, facecolor="white")
+for t in leg.get_texts():
+    t.set_color("black")
+cb = fig.colorbar(m, ax=ax, label="Normalised power (significant only)")
+cb.ax.yaxis.label.set_color("black")
+cb.ax.tick_params(colors="black")
+
+plt.show()
