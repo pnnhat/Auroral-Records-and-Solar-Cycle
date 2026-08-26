@@ -593,3 +593,79 @@ cb.ax.yaxis.label.set_color("black")
 cb.ax.tick_params(colors="black")
 
 plt.show()
+
+
+## Diagnostic: where does raw power actually max, relative to the Maunder Minimum?
+jmax = np.unravel_index(np.nanargmax(power_raw), power_raw.shape)[1]
+N_jmax = int(((years_pp >= starts[jmax]) & (years_pp < starts[jmax] + win)).sum())
+print(
+    f"Raw power peaks in window centred {centres[jmax]:.0f} "
+    f"(covers {starts[jmax]:.0f}-{starts[jmax] + win:.0f}), N={N_jmax} events"
+)
+
+# events actually inside the Maunder Minimum
+maunder = (years_pp >= 1645) & (years_pp <= 1715)
+print(f"Events inside Maunder (1645-1715): {int(maunder.sum())}")
+print(
+    f"Events in pre-Maunder burst (1540-1640): {int(((years_pp >= 1540) & (years_pp <= 1640)).sum())}"
+)
+
+
+## Per-window standardized Bartlett map (z-score vs each window's own null)
+# For each window, build a uniform-random null of the same N, then express the
+# observed power as a z-score against that null, per period. Colour then means
+# "sigmas above noise", comparable across windows regardless of event count.
+n_mc = 200
+rng = np.random.default_rng(2200)
+
+power_z = np.full((nP_map, len(starts)), np.nan)
+peak_z = np.full(len(starts), np.nan)
+
+for j, s in enumerate(starts):
+    ev = years_pp[(years_pp >= s) & (years_pp < s + win)].astype(float)
+    N = len(ev)
+    if N < min_events:
+        continue
+    I_obs = point_process_periodogram(ev, f_grid_map)
+
+    null = np.empty((n_mc, nP_map))
+    for k in range(n_mc):
+        t_rand = rng.uniform(s, s + win, size=N)
+        null[k] = point_process_periodogram(t_rand, f_grid_map)
+
+    mu = null.mean(axis=0)
+    sd = null.std(axis=0)
+    sd[sd == 0] = np.nan
+    z = (I_obs - mu) / sd  # standardized power, per period
+    power_z[:, j] = z
+    peak_z[j] = periods_map[int(np.argmax(z))]
+
+## Figure: standardized power over time
+fig, ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
+fig.patch.set_facecolor("white")
+
+vmax = np.nanpercentile(power_z, 99)  # clip so a few extreme cells don't wash it out
+m = ax.pcolormesh(
+    centres,
+    periods_map,
+    np.ma.masked_invalid(power_z),
+    shading="nearest",
+    cmap="viridis",
+    vmin=0.0,
+    vmax=vmax,
+)
+ax.plot(centres, peak_z, color="black", lw=1.2, marker=".", ms=3, label="Peak (z)")
+ax.axhline(11.0, color="red", ls="--", lw=1.4, label="11-year")
+ax.set_title("Standardized power over time (z-score version )", color="black")
+ax.set_xlabel("Window centre year", color="black")
+ax.set_ylabel("Period (years)", color="black")
+ax.set_ylim(7.0, 16.0)
+ax.tick_params(colors="black")
+leg = ax.legend(loc="upper right", framealpha=0.9, facecolor="white")
+for t in leg.get_texts():
+    t.set_color("black")
+cb = fig.colorbar(m, ax=ax, label="Power (sigmas above null mean)")
+cb.ax.yaxis.label.set_color("black")
+cb.ax.tick_params(colors="black")
+
+plt.show()
